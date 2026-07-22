@@ -16,7 +16,8 @@ import { renderStatistics, reloadStats } from "./views/stats.js";
 import { renderFactorySettings } from "./views/settings.js";
 import { renderProfile } from "./views/profile.js";
 import { renderConfigurator } from "./configurator/index.js";
-import { bindCanvas } from "./configurator/canvas.js";
+import { bindCanvas, handleStripField } from "./configurator/canvas.js";
+import { bindDetailCanvas } from "./configurator/details.js";
 import { bindCredence, handleWallHeight } from "./configurator/credence.js";
 import { handlePieceField } from "./configurator/inspector.js";
 import { handleDetailField, handleDetailClick } from "./configurator/details.js";
@@ -109,6 +110,7 @@ export function render() {
   if (state.view === "configurator") {
     bindCanvas(root);
     bindCredence(root);
+    bindDetailCanvas(root);
   }
 }
 
@@ -186,6 +188,7 @@ document.addEventListener("change", (event) => {
     return;
   }
   if (el.dataset.actionChange && handleMaterialChange(el)) return;
+  if (handleStripField(el)) return;
   if (handleWallHeight(el)) return;
   if (handlePieceField(el)) { render(); return; }
   if (handleDetailField(el)) return;

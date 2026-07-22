@@ -1,159 +1,291 @@
-// Documents imprimables (HTML autonome avec CSS d'impression) :
-// - devis client (avec marge, TVA, remise — sans les prix usine)
-// - bon de commande client
-// - bon de commande usine (prix d'achat usine, sans les lignes commerciales)
-// - fiche technique de fabrication (cotes, découpes, chants, étapes)
+// Documents imprimables — réplique du gabarit d'origine (5 pages) :
+//   page 1-2 : en-tête émetteur, blocs Émetteur/Client/Projet, détail des
+//              prestations groupé par élément avec sous-totaux, totaux,
+//              conditions de règlement ;
+//   page 3   : Vue d'ensemble du projet (repères numérotés + légende) ;
+//   page 4+  : Plans techniques entièrement cotés (un cadre par pièce) ;
+//   dernière : note « Important », remarques, signatures, pied de page.
+//
+// Types : quote (Devis client) · customer-order (Bon de commande client, N° BDC)
+//         factory-order (Bon de commande usine, prix d'achat, sans TVA).
 
-import { STATUS_LABELS, EDGE_SIDES, PRODUCTION_STEPS } from "../../shared/constants.js";
+import { STATUS_LABELS, PRODUCTION_STEPS, EDGE_SIDES } from "../../shared/constants.js";
+import { overviewSvg, technicalSvg } from "../../shared/plan-svg.js";
 
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (value) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(value || 0));
-const num = (value, digits = 2) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: digits }).format(Number(value || 0));
-const dateFr = (value) => (value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "");
+const dateFr = (value) => (value ? new Date(value).toLocaleDateString("fr-FR") : "");
+// Les quantités sont imprimées avec un point décimal (1.334 m², 0.65 ml).
+const qty = (value) => String(Math.round(Number(value || 0) * 1000) / 1000);
 
-const BASE_CSS = `
+const CSS = `
   * { box-sizing: border-box; margin: 0; }
-  body { font: 13px/1.5 "Segoe UI", system-ui, sans-serif; color: #20231f; padding: 34px 40px; }
-  header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; }
-  h1 { font-size: 24px; letter-spacing: .3px; }
-  h2 { font-size: 15px; margin: 22px 0 8px; }
-  .muted { color: #6c6f6a; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 14px 0; }
-  .box { border: 1px solid #ddd8d0; border-radius: 8px; padding: 12px 14px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e7e2da; vertical-align: top; }
-  th { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: #6c6f6a; }
-  td.r, th.r { text-align: right; white-space: nowrap; }
-  .totals { margin-left: auto; width: 320px; margin-top: 14px; }
-  .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
-  .totals .grand { border-top: 2px solid #20231f; font-size: 16px; font-weight: 700; padding-top: 8px; margin-top: 6px; }
-  .logo { font-weight: 800; font-size: 20px; }
-  .logo span { display: inline-block; background: #c75b39; color: #fff; border-radius: 6px; padding: 1px 8px; margin-right: 7px; }
-  .terms { font-size: 11px; color: #6c6f6a; margin-top: 26px; white-space: pre-wrap; }
-  .badge { display: inline-block; border: 1px solid #ddd8d0; border-radius: 99px; padding: 2px 10px; font-size: 11px; }
-  .piece { border: 1px solid #ddd8d0; border-radius: 8px; padding: 12px 14px; margin: 10px 0; page-break-inside: avoid; }
-  .sig { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 34px; }
-  .sig .box { min-height: 110px; }
-  ul.checklist { list-style: none; padding: 0; } ul.checklist li { padding: 3px 0; }
-  @media print { body { padding: 10mm 12mm; } .noprint { display: none; } }
+  body { font: 13px/1.45 Arial, "Segoe UI", sans-serif; color: #26282a; padding: 26px 34px; }
+  .doc-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 4px solid #c75b39; }
+  .issuer-name { font-family: Georgia, "Times New Roman", serif; font-size: 30px; font-weight: 700; letter-spacing: .4px; }
+  .issuer-sub { color: #8a8d90; margin-top: 4px; font-size: 12.5px; }
+  .doc-title { font-size: 26px; font-weight: 700; text-align: right; }
+  .doc-meta { text-align: right; font-size: 12.5px; margin-top: 4px; }
+  .doc-meta strong { font-weight: 700; }
+  .info-blocks { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; margin: 24px 0 8px; padding-top: 14px; border-top: 1px solid #d9d5cf; border-bottom: 1px solid #d9d5cf; padding-bottom: 16px; }
+  .info-blocks h4 { font-size: 13px; margin-bottom: 6px; }
+  .info-blocks div p { margin: 2px 0; font-size: 12.5px; }
+  h2.section { font-size: 17px; margin: 26px 0 10px; }
+  table.lines { width: 100%; border-collapse: collapse; }
+  table.lines th { text-align: left; font-size: 12px; padding: 8px 6px; border-bottom: 2px solid #b9b4ad; }
+  table.lines th.r, table.lines td.r { text-align: right; white-space: nowrap; }
+  table.lines td { padding: 9px 6px; border-bottom: 1px solid #e4e0d9; vertical-align: top; font-size: 12.5px; }
+  tr.group-head td { border-top: 3px double #b9b4ad; border-bottom: 1px solid #e4e0d9; padding-top: 12px; }
+  tr.group-head .g-title { font-size: 14px; font-weight: 700; }
+  tr.group-head .g-sub { color: #8a8d90; font-size: 11.5px; }
+  tr.material-line td { font-weight: 700; }
+  tr.subtotal td { border-bottom: 2px solid #b9b4ad; padding: 8px 6px 12px; }
+  .subtotal-label { text-align: right; font-weight: 700; font-size: 13.5px; }
+  .subtotal-note { text-align: right; color: #8a8d90; font-size: 10.5px; }
+  .margin-note { color: #6c6f6a; font-size: 12px; margin: 18px 0; border-top: 1px solid #d9d5cf; padding-top: 12px; }
+  .totals { width: 330px; margin-left: auto; margin-top: 8px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px solid #e4e0d9; }
+  .totals .grand { display: flex; justify-content: space-between; padding: 10px 4px; font-size: 19px; font-weight: 700; border-bottom: none; margin-top: 4px; }
+  .cond-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 26px; }
+  .cond-boxes .box, .sig-boxes .box { border: 1.5px solid #cfc9c1; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
+  .cond-boxes .box strong { display: block; margin-bottom: 4px; }
+  .page { page-break-before: always; }
+  h2.page-title { font-size: 18px; margin: 8px 0 16px; }
+  .sheet { border: 1px solid #d9d5cf; border-radius: 10px; background: #f6f3ec; padding: 26px; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px solid #d9d5cf; margin-top: 18px; padding-top: 12px; }
+  .legend .item { display: flex; gap: 9px; align-items: flex-start; font-size: 12px; }
+  .legend .badge-n { display: inline-flex; width: 22px; height: 22px; border: 1.5px solid #26282a; border-radius: 50%; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+  .tech-block { border: 1px solid #d9d5cf; border-radius: 8px; padding: 16px 18px 8px; margin-bottom: 22px; page-break-inside: avoid; }
+  .tech-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #d9d5cf; padding-bottom: 8px; margin-bottom: 8px; }
+  .tech-head h3 { font-size: 17px; }
+  .tech-head .mat { font-size: 13px; color: #4a4d50; } .tech-head .mat strong { color: #26282a; }
+  .important { display: flex; gap: 10px; border-left: 4px solid #c75b39; background: #faf6f1; padding: 10px 14px; font-size: 12.5px; margin: 18px 0; }
+  h2.remarks { font-size: 16px; margin: 22px 0 8px; }
+  .sig-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+  .sig-boxes .box { min-height: 120px; }
+  .sig-boxes .box small { color: #8a8d90; }
+  .doc-footer { border-top: 1px solid #d9d5cf; margin-top: 26px; padding-top: 8px; color: #8a8d90; font-size: 11px; }
+  .noprint { margin-top: 24px; }
+  @media print { body { padding: 6mm 8mm; } .noprint { display: none; } }
 `;
 
-function page(title, body) {
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${BASE_CSS}</style></head>
-<body>${body}<div class="noprint" style="margin-top:26px"><button onclick="print()" style="padding:9px 18px;font-weight:600;cursor:pointer">Imprimer / PDF</button></div></body></html>`;
-}
-
-function header(issuer, docTitle, meta) {
-  return `<header>
+function header(issuer, title, metaLines) {
+  return `<header class="doc-header">
     <div>
-      ${issuer.logoDataUrl ? `<img src="${esc(issuer.logoDataUrl)}" alt="" style="max-height:54px;max-width:190px;margin-bottom:8px">` : `<div class="logo"><span>M</span>${esc(issuer.name)}</div>`}
-      <div class="muted">${esc(issuer.legalName || "")}</div>
-      <div class="muted">${esc(issuer.address || "")}</div>
-      <div class="muted">${[issuer.siret ? `SIRET ${issuer.siret}` : "", issuer.vatNumber ? `TVA ${issuer.vatNumber}` : ""].filter(Boolean).map(esc).join(" · ")}</div>
-      <div class="muted">${[issuer.email, issuer.phone].filter(Boolean).map(esc).join(" · ")}</div>
+      ${issuer.logoDataUrl ? `<img src="${esc(issuer.logoDataUrl)}" alt="" style="max-height:56px;max-width:220px;margin-bottom:6px"><br>` : ""}
+      <div class="issuer-name">${esc(issuer.name)}</div>
+      <div class="issuer-sub">${esc(issuer.address || "")}</div>
+      <div class="issuer-sub">${[issuer.phone, issuer.email].filter(Boolean).map(esc).join(" · ")}</div>
     </div>
-    <div style="text-align:right">
-      <h1>${esc(docTitle)}</h1>
-      ${meta.map((line) => `<div class="muted">${esc(line)}</div>`).join("")}
+    <div>
+      <div class="doc-title">${esc(title)}</div>
+      <div class="doc-meta">${metaLines.map((line) => `<div>${line}</div>`).join("")}</div>
     </div>
   </header>`;
 }
 
-function customerBox(project) {
+function infoBlocks(firstTitle, firstBody, project) {
   const c = project.customer || {};
-  return `<div class="box"><strong>Client</strong><br>${esc(c.name || "")}<br>${esc(c.address || "")}<br>${[c.email, c.phone].filter(Boolean).map(esc).join(" · ")}</div>`;
+  return `<div class="info-blocks">
+    <div><h4>${esc(firstTitle)}</h4>${firstBody}</div>
+    <div><h4>Client</h4>
+      <p>${esc(c.name || "—")}</p>
+      <p>${esc(c.address || "")}</p>
+      <p>${[c.phone, c.email].filter(Boolean).map(esc).join(" · ")}</p></div>
+    <div><h4>Projet</h4>
+      <p>${esc(project.title)}</p>
+      <p>${esc(project.roomType || "")}</p>
+      <p>Livraison souhaitée : ${esc(project.deliveryWeek || "—")}</p></div>
+  </div>`;
 }
 
-function customerLinesTable(quote) {
-  const rows = quote.lines.map((line) => `<tr>
-      <td>${esc(line.code)}</td><td>${esc(line.description)}</td>
-      <td class="r">${num(line.quantity, 3)} ${esc(line.unit)}</td>
-      <td class="r">${money(line.customerUnitPrice)}</td>
-      <td class="r">${money(line.customerAmount)}</td></tr>`).join("");
-  const manualRows = (quote.manualLines || []).map((line) => `<tr>
-      <td></td><td>${esc(line.label)}</td>
-      <td class="r">${num(line.quantity || 1)}</td>
-      <td class="r">${money(line.priceHT)}</td>
-      <td class="r">${money(line.amount)}</td></tr>`).join("");
-  return `<table><thead><tr><th>Code</th><th>Désignation</th><th class="r">Qté</th><th class="r">P.U. HT</th><th class="r">Total HT</th></tr></thead>
-    <tbody>${rows}${manualRows}</tbody></table>`;
+// Tableau groupé par élément, avec sous-total par groupe.
+function linesTable(project, quote, { customerPrices, vatColumn }) {
+  const priceOf = (line) => (customerPrices ? line.customerUnitPrice : line.factoryUnitPrice);
+  const amountOf = (line) => (customerPrices ? line.customerAmount : line.factoryAmount);
+
+  const groups = new Map();
+  const pieces = (project.pieces || []).filter((p) => ["worktop", "splashback", "panel"].includes(p.kind));
+  const kindLabels = { worktop: "Plan de travail", splashback: "Crédence", panel: "Panneau" };
+  for (const line of quote.lines || []) {
+    const key = line.pieceId || "_general";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(line);
+  }
+
+  const colCount = vatColumn ? 6 : 5;
+  let rows = "";
+  let index = 0;
+  for (const [key, lines] of groups) {
+    const piece = pieces.find((p) => p.id === key);
+    if (piece) {
+      index += 1;
+      rows += `<tr class="group-head"><td colspan="${colCount}">
+        <div class="g-title">Élément ${index} — ${esc(piece.name)}</div>
+        <div class="g-sub">${esc(kindLabels[piece.kind] || piece.kind)} · élément principal et toutes ses découpes / finitions</div></td></tr>`;
+    } else {
+      rows += `<tr class="group-head"><td colspan="${colCount}">
+        <div class="g-title">Livraison et prestations générales</div>
+        <div class="g-sub">Prestations hors élément</div></td></tr>`;
+    }
+    for (const line of lines) {
+      rows += `<tr class="${line.category === "Matière" ? "material-line" : ""}">
+        <td>${esc(line.code)}</td>
+        <td>${esc(line.description)}</td>
+        <td class="r">${qty(line.quantity)} ${esc(line.unit)}</td>
+        <td class="r">${money(priceOf(line))}</td>
+        ${vatColumn ? `<td class="r">${line.customerVatPct} %</td>` : ""}
+        <td class="r">${money(amountOf(line))}</td>
+      </tr>`;
+    }
+    const subtotal = lines.reduce((sum, line) => sum + amountOf(line), 0);
+    rows += `<tr class="subtotal"><td colspan="${colCount - 1}">
+      <div class="subtotal-label">Sous-total du groupe</div>
+      <div class="subtotal-note">Montant informatif déjà inclus dans le total — ce n'est pas un supplément.</div></td>
+      <td class="r" style="font-weight:700">${money(Math.round(subtotal * 100) / 100)}</td></tr>`;
+  }
+
+  // Lignes commerciales du revendeur (documents client uniquement).
+  if (customerPrices && (quote.manualLines || []).length) {
+    rows += `<tr class="group-head"><td colspan="${colCount}">
+      <div class="g-title">Prestations complémentaires</div>
+      <div class="g-sub">Pose et prestations du revendeur</div></td></tr>`;
+    for (const line of quote.manualLines) {
+      rows += `<tr><td></td><td>${esc(line.label)}</td><td class="r">${qty(line.quantity || 1)} un</td>
+        <td class="r">${money(line.priceHT)}</td>${vatColumn ? `<td class="r">${line.vatPct} %</td>` : ""}
+        <td class="r">${money(line.amount)}</td></tr>`;
+    }
+  }
+
+  return `<table class="lines">
+    <thead><tr><th style="width:52px">Code</th><th>Désignation</th><th class="r">Quantité</th>
+      <th class="r">Prix unitaire HT</th>${vatColumn ? `<th class="r">TVA</th>` : ""}<th class="r">Total HT</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
 }
 
 function customerTotals(quote) {
-  return `<div class="totals">
-    <div><span>Total HT</span><strong>${money(quote.customerHT)}</strong></div>
-    ${(quote.vatBreakdown || []).map((entry) => `<div><span>TVA ${num(entry.rate)} %</span><span>${money(entry.amount)}</span></div>`).join("")}
-    <div><span>Sous-total TTC</span><span>${money(quote.customerSubtotalTTC)}</span></div>
-    ${quote.discountTTC ? `<div><span>Remise</span><span>− ${money(quote.discountTTC)}</span></div>` : ""}
+  return `
+  <div class="margin-note">Prix de vente calculés avec la marge répartie sur chaque ligne. Les prestations ajoutées manuellement et la remise restent privées entre le revendeur et son client.</div>
+  <div class="totals">
+    <div class="row"><span>Montant HT</span><strong>${money(quote.customerHT)}</strong></div>
+    ${(quote.vatBreakdown || []).map((entry) => `<div class="row"><span>TVA ${entry.rate} %</span><strong>${money(entry.amount)}</strong></div>`).join("")}
+    <div class="row"><span>Sous-total TTC</span><strong>${money(quote.customerSubtotalTTC)}</strong></div>
+    ${quote.discountTTC ? `<div class="row"><span>Remise</span><strong>− ${money(quote.discountTTC)}</strong></div>` : ""}
     <div class="grand"><span>Total TTC</span><span>${money(quote.customerTTC)}</span></div>
   </div>`;
 }
 
-export function quoteDocument(project, reseller) {
-  const quote = project.quote;
-  const issuer = { ...reseller, name: reseller.company };
-  const body = `
-    ${header(issuer, "Devis", [`N° ${project.reference}`, `Date : ${dateFr(project.quoteDate)}`, `Validité : ${dateFr(project.validityDate)}`])}
-    <div class="grid2">${customerBox(project)}
-      <div class="box"><strong>Projet</strong><br>${esc(project.title)}<br>${esc(project.roomType || "")} · semaine de livraison souhaitée ${esc(project.deliveryWeek || "—")}</div></div>
-    ${customerLinesTable(quote)}
-    ${customerTotals(quote)}
-    ${project.notes ? `<h2>Remarques</h2><p>${esc(project.notes)}</p>` : ""}
-    <div class="sig"><div class="box"><strong>Bon pour accord client</strong><br><span class="muted">Date et signature précédées de « bon pour accord »</span></div>
-    <div class="box"><strong>${esc(reseller.company)}</strong><br><span class="muted">${esc(reseller.salespersonName || reseller.managerName || "")}</span></div></div>
-    <div class="terms">${esc([reseller.paymentTerms, reseller.latePenalties, reseller.salesTerms].filter(Boolean).join("\n"))}</div>`;
-  return page(`Devis ${project.reference}`, body);
-}
-
-export function customerOrderDocument(project, reseller) {
-  const quote = project.quote;
-  const issuer = { ...reseller, name: reseller.company };
-  const body = `
-    ${header(issuer, "Bon de commande", [`N° ${project.reference}`, `Date : ${dateFr(project.customerOrderDate || project.quoteDate)}`])}
-    <div class="grid2">${customerBox(project)}
-      <div class="box"><strong>Livraison</strong><br>Semaine ${esc(project.deliveryWeek || "—")}<br>${esc(project.customer?.address || "")}</div></div>
-    ${customerLinesTable(quote)}
-    ${customerTotals(quote)}
-    <div class="sig"><div class="box"><strong>Signature client</strong></div><div class="box"><strong>${esc(reseller.company)}</strong></div></div>
-    <div class="terms">${esc([reseller.paymentTerms, reseller.latePenalties].filter(Boolean).join("\n"))}</div>`;
-  return page(`Bon de commande ${project.reference}`, body);
-}
-
-function pieceTechnicalBlock(piece, catalog, materialLabel) {
-  const cutRows = (piece.cutouts || []).map((cut) => {
-    const service = (catalog?.services || []).find((s) => s.id === cut.serviceId);
-    const ref = [cut.brand, cut.reference].filter(Boolean).join(" ");
-    const dims = cut.shape === "circle" ? `Ø ${num(cut.diameterMm || cut.widthMm, 0)} mm` : `${num(cut.widthMm, 0)} × ${num(cut.heightMm, 0)} mm${cut.radiusMm ? ` · R${num(cut.radiusMm, 0)}` : ""}`;
-    return `<tr><td>${esc(service?.label || cut.kind)}</td><td>${esc(ref || "—")}${cut.verified ? "" : " <span class='badge'>à vérifier</span>"}</td>
-      <td class="r">${dims}</td><td class="r">X ${num(cut.xMm, 0)} · Y ${num(cut.yMm, 0)} mm</td></tr>`;
-  }).join("");
-  const edgeRows = (piece.edges || []).map((edge) => {
-    const service = (catalog?.services || []).find((s) => s.id === edge.serviceId);
-    return `<tr><td>${esc(service?.label || "Chant")}</td><td>${esc(EDGE_SIDES[edge.side] || edge.side)}</td><td class="r">${num(edge.lengthMm || 0, 0)} mm</td><td></td></tr>`;
-  }).join("");
-  return `<div class="piece">
-    <strong>${esc(piece.name || piece.kind)}</strong> — ${num(piece.lengthMm, 0)} × ${num(piece.widthMm, 0)} mm · ${esc(materialLabel)}
-    ${cutRows || edgeRows ? `<table><thead><tr><th>Usinage</th><th>Référence / côté</th><th class="r">Dimensions</th><th class="r">Position (depuis coin haut-gauche)</th></tr></thead><tbody>${cutRows}${edgeRows}</tbody></table>` : `<p class="muted">Aucun usinage.</p>`}
+function conditionBoxes(reseller) {
+  return `<div class="cond-boxes">
+    <div class="box"><strong>Conditions de règlement</strong>${esc(reseller.paymentTerms || "Paiement selon les conditions indiquées au devis.")}</div>
+    <div class="box"><strong>Retard de paiement</strong>${esc(reseller.latePenalties || "")}</div>
   </div>`;
+}
+
+function overviewPage(project) {
+  const { svg, legend } = overviewSvg(project);
+  return `<div class="page">
+    <h2 class="page-title">Vue d'ensemble du projet</h2>
+    <div class="sheet">${svg}
+      <div class="legend">${legend.map((item) => `
+        <div class="item"><span class="badge-n">${item.index}</span>
+          <span><strong>${esc(item.name)}</strong><br>
+          <span style="color:#8a8d90">${item.lengthMm} × ${item.widthMm} mm · rotation ${item.rotationDeg}°</span></span></div>`).join("")}
+      </div></div></div>`;
+}
+
+function technicalPages(project, catalog) {
+  const pieces = (project.pieces || []).filter((p) => ["worktop", "splashback", "panel"].includes(p.kind));
+  if (!pieces.length) return "";
+  const blocks = pieces.map((piece, index) => {
+    const material = (catalog?.materials || []).find((m) => m.id === (piece.materialId || project.materialId));
+    const thickness = piece.thicknessMm || project.thicknessMm;
+    const finish = piece.finish || project.finish;
+    const variant = (material?.variants || []).find((v) => v.finish === finish && v.thicknessMm === Number(thickness));
+    return `<div class="tech-block">
+      <div class="tech-head"><h3>${index + 1}. ${esc(piece.name)}</h3>
+        <span class="mat"><strong>${esc(material?.brand || "")}</strong> · <strong>${esc(material?.color || "")}</strong> · épaisseur <strong>${esc(thickness)} mm</strong> · rotation ${piece.rotationDeg || 0}°${variant ? ` · ${esc(variant.finishLabel || finish)}` : ""}</span></div>
+      ${technicalSvg(piece)}
+    </div>`;
+  }).join("");
+  return `<div class="page"><h2 class="page-title">Plans techniques entièrement cotés</h2>${blocks}</div>`;
+}
+
+function closingSection(project, issuer, { signatures }) {
+  const important = `<div class="important"><div><strong>Important :</strong> toutes les cotes sont en millimètres. Les axes verticaux sont mesurés depuis le chant avant pour les plans de travail, et depuis le chant bas pour les crédences et panneaux. Les références et cotes d'encastrement doivent être vérifiées avant fabrication.</div></div>`;
+  const remarks = project.notes ? `<h2 class="remarks">Remarques</h2><p style="font-size:12.5px">${esc(project.notes)}</p>` : "";
+  const signatureBoxes = signatures.length ? `<div class="sig-boxes">${signatures.map(([title, subtitle]) => `
+    <div class="box"><strong>${esc(title)}</strong><br><small>${esc(subtitle)}</small></div>`).join("")}</div>` : "";
+  const footer = `<div class="doc-footer">${esc(issuer.name)}${issuer.siret ? ` · SIRET ${esc(issuer.siret)}` : ""}<br>${esc(issuer.email || "")}</div>`;
+  return `${important}${remarks}${signatureBoxes}${footer}`;
+}
+
+function page(title, body) {
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${CSS}</style></head>
+<body>${body}<div class="noprint"><button onclick="print()" style="padding:9px 18px;font-weight:600;cursor:pointer">Imprimer / PDF</button></div></body></html>`;
+}
+
+// ---------- Documents ----------
+
+export function quoteDocument(project, reseller, factory, catalog) {
+  const quote = project.quote;
+  const issuer = { ...reseller, name: reseller.company, address: reseller.billingAddress || reseller.deliveryAddress };
+  const body = `
+    ${header(issuer, "Devis client", [
+      `<strong>N° ${esc(project.reference)}</strong>`,
+      `Date : ${dateFr(project.quoteDate)}`,
+      `Valable jusqu'au : ${dateFr(project.validityDate)}`,
+    ])}
+    ${infoBlocks("Émetteur", `<p>${esc(reseller.company)}</p><p>${esc(reseller.deliveryAddress || "")}</p><p>${[reseller.phone, reseller.email].filter(Boolean).map(esc).join(" · ")}</p>`, project)}
+    <h2 class="section">Détail des prestations</h2>
+    ${linesTable(project, quote, { customerPrices: true, vatColumn: true })}
+    ${customerTotals(quote)}
+    ${conditionBoxes(reseller)}
+    ${overviewPage(project)}
+    ${technicalPages(project, catalog)}
+    ${closingSection(project, issuer, { signatures: [["Le revendeur", "Date, nom et signature"], ["Le client - Bon pour accord", "Date, nom, signature et mention manuscrite"]] })}`;
+  return page(`Devis client ${project.reference}`, body);
+}
+
+export function customerOrderDocument(project, reseller, factory, catalog) {
+  const quote = project.quote;
+  const issuer = { ...reseller, name: reseller.company, address: reseller.billingAddress || reseller.deliveryAddress };
+  const bdcNumber = String(project.reference || "").replace(/^DEV/, "BDC");
+  const body = `
+    ${header(issuer, "Bon de commande client", [
+      `<strong>N° ${esc(bdcNumber)}</strong>`,
+      `Date : ${dateFr(project.customerOrderDate || project.quoteDate)}`,
+    ])}
+    ${infoBlocks("Émetteur", `<p>${esc(reseller.company)}</p><p>${esc(reseller.deliveryAddress || "")}</p><p>${[reseller.phone, reseller.email].filter(Boolean).map(esc).join(" · ")}</p>`, project)}
+    <h2 class="section">Détail des prestations</h2>
+    ${linesTable(project, quote, { customerPrices: true, vatColumn: true })}
+    ${customerTotals(quote)}
+    ${conditionBoxes(reseller)}
+    ${overviewPage(project)}
+    ${technicalPages(project, catalog)}
+    ${closingSection(project, issuer, { signatures: [["Le revendeur", "Date, nom et signature"], ["Le client - Bon pour accord", "Date, nom, signature et mention manuscrite"]] })}`;
+  return page(`Bon de commande client ${bdcNumber}`, body);
 }
 
 export function factoryOrderDocument(order, project, reseller, factory, catalog) {
   const quote = project.quote;
-  const rows = quote.lines.map((line) => `<tr>
-      <td>${esc(line.code)}</td><td>${esc(line.description)}</td>
-      <td class="r">${num(line.quantity, 3)} ${esc(line.unit)}</td>
-      <td class="r">${money(line.factoryUnitPrice)}</td>
-      <td class="r">${money(line.factoryAmount)}</td></tr>`).join("");
+  const issuer = { ...factory };
   const body = `
-    ${header({ ...factory }, "Bon de commande usine", [`N° ${order.number}`, `Statut : ${STATUS_LABELS[order.status] || order.status}`, `Semaine : ${order.deliveryWeek || "—"}`, `Révision ${order.revision || 1}`])}
-    <div class="grid2">
-      <div class="box"><strong>Revendeur</strong><br>${esc(reseller.company)}<br>${esc(reseller.deliveryAddress || "")}<br>${[reseller.email, reseller.phone].filter(Boolean).map(esc).join(" · ")}</div>
-      <div class="box"><strong>Chantier / client final</strong><br>${esc(project.customer?.name || "")}<br>${esc(project.customer?.address || "")}</div>
+    ${header(issuer, "Bon de commande usine", [
+      `<strong>N° ${esc(order.number || "(brouillon)")}</strong>`,
+      `Date d'envoi : ${dateFr(order.submittedAt || project.updatedAt)}`,
+      order.revision > 1 ? `Révision ${order.revision}` : "",
+    ].filter(Boolean))}
+    ${infoBlocks("Revendeur", `<p>${esc(reseller.company)}</p><p>${esc(reseller.deliveryAddress || "")}</p><p>${[reseller.phone, reseller.email].filter(Boolean).map(esc).join(" · ")}</p>`, project)}
+    <h2 class="section">Détail du chiffrage usine</h2>
+    ${linesTable(project, quote, { customerPrices: false, vatColumn: false })}
+    <div class="totals" style="margin-top:16px">
+      <div class="grand"><span>Prix usine HT</span><span>${money(quote.purchaseHT)}</span></div>
     </div>
-    <table><thead><tr><th>Code</th><th>Désignation</th><th class="r">Qté</th><th class="r">P.U. usine HT</th><th class="r">Total usine HT</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="totals"><div class="grand"><span>Total achat usine HT</span><span>${money(quote.purchaseHT)}</span></div></div>
-    ${project.notes ? `<h2>Remarques</h2><p>${esc(project.notes)}</p>` : ""}`;
-  return page(`BC usine ${order.number}`, body);
+    ${overviewPage(project)}
+    ${technicalPages(project, catalog)}
+    ${closingSection(project, issuer, { signatures: [["Le revendeur", "Date, nom et signature"], ["L'usine - Bon pour fabrication", "Date, nom et signature"]] })}`;
+  return page(`Bon de commande usine ${order.number || project.reference}`, body);
 }
 
 export function technicalSheetDocument(order, project, reseller, factory, catalog) {
@@ -161,21 +293,21 @@ export function technicalSheetDocument(order, project, reseller, factory, catalo
   const variant = (material?.variants || []).find((v) => v.finish === project.finish && v.thicknessMm === Number(project.thicknessMm))
     || (material?.variants || [])[0];
   const materialLabel = material ? `${material.brand} ${material.color} · ${project.thicknessMm} mm · ${variant?.finishLabel || project.finish}` : "";
-  const manufactured = (project.pieces || []).filter((p) => ["worktop", "splashback", "panel"].includes(p.kind));
   const steps = PRODUCTION_STEPS.map((step) => {
     const done = order.productionSteps?.[step.id];
-    return `<li>${done ? "☑" : "☐"} ${esc(step.label)}${done ? ` <span class="muted">— ${dateFr(done.at)} (${esc(done.by || "")})</span>` : ""}</li>`;
+    return `<li style="padding:3px 0">${done ? "☑" : "☐"} ${esc(step.label)}${done ? ` <span style="color:#8a8d90">— ${dateFr(done.at)} (${esc(done.by || "")})</span>` : ""}</li>`;
   }).join("");
   const body = `
-    ${header({ ...factory }, "Fiche technique de fabrication", [`N° ${order.number}`, `${project.reference}`, `Semaine : ${order.deliveryWeek || "—"}`])}
-    <div class="grid2">
-      <div class="box"><strong>Matériau</strong><br>${esc(materialLabel)}<br><span class="muted">Plaque maxi : ${num(variant?.maxLengthMm || material?.maxLengthMm, 0)} × ${num(variant?.maxWidthMm || material?.maxWidthMm, 0)} mm</span></div>
-      <div class="box"><strong>Chantier</strong><br>${esc(project.customer?.name || "")} · ${esc(reseller.company)}<br>${esc(project.customer?.address || "")}</div>
-    </div>
-    <h2>Pièces à fabriquer (${manufactured.length})</h2>
-    ${manufactured.map((piece) => pieceTechnicalBlock(piece, catalog, materialLabel)).join("")}
-    <h2>Étapes de fabrication</h2><ul class="checklist">${steps}</ul>
-    ${project.notes ? `<h2>Remarques</h2><p>${esc(project.notes)}</p>` : ""}
-    <p class="terms">DXF 2D machine disponible dans Marbexa · Les cotes d'encastrement marquées « à vérifier » doivent être contrôlées avec la notice fabricant avant usinage.</p>`;
-  return page(`Fiche technique ${order.number}`, body);
+    ${header({ ...factory }, "Fiche technique de fabrication", [
+      `<strong>N° ${esc(order.number || "(brouillon)")}</strong>`,
+      `${esc(project.reference)}`,
+      `Statut : ${esc(STATUS_LABELS[order.status] || "")}`,
+      `Semaine : ${esc(order.deliveryWeek || project.deliveryWeek || "—")}`,
+    ])}
+    ${infoBlocks("Matériau", `<p>${esc(materialLabel)}</p><p style="color:#8a8d90">Plaque maxi : ${variant ? `${variant.maxLengthMm} × ${variant.maxWidthMm} mm` : "—"}</p>`, project)}
+    ${overviewPage(project)}
+    ${technicalPages(project, catalog)}
+    <h2 class="remarks">Étapes de fabrication</h2><ul style="list-style:none;padding:0;font-size:13px">${steps}</ul>
+    ${closingSection(project, { ...factory }, { signatures: [] })}`;
+  return page(`Fiche technique ${order.number || project.reference}`, body);
 }

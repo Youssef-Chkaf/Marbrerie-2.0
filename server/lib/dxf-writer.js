@@ -78,42 +78,50 @@ const round = (value) => Math.round(value * 100) / 100;
 // round = arrondi (arc), cut = pan coupé (chanfrein), notch90 = découpe 90°
 // (redan rentrant). `corners` : { bl, br, tr, tl } avec {type, radiusMm|cutMm}.
 function pieceOutline(dxf, x, y, width, height, corners) {
-  const size = (corner) => {
-    if (!corner || !corner.type || corner.type === "square") return 0;
-    const value = corner.type === "round" ? corner.radiusMm : corner.cutMm;
-    return Math.max(0, Math.min(Number(value || 0), width / 2, height / 2));
+  // Étendues dx (le long de la longueur) et dy (le long de la largeur) d'un angle.
+  const spans = (corner) => {
+    if (!corner || !corner.type || corner.type === "square") return { dx: 0, dy: 0 };
+    if (corner.type === "round") {
+      const r = Math.max(0, Math.min(Number(corner.radiusMm || 0), width / 2, height / 2));
+      return { dx: r, dy: r };
+    }
+    return {
+      dx: Math.max(0, Math.min(Number(corner.cutXmm ?? corner.cutMm ?? 0), width / 2)),
+      dy: Math.max(0, Math.min(Number(corner.cutYmm ?? corner.cutMm ?? 0), height / 2)),
+    };
   };
-  const s = { bl: size(corners.bl), br: size(corners.br), tr: size(corners.tr), tl: size(corners.tl) };
-  const t = { bl: corners.bl?.type, br: corners.br?.type, tr: corners.tr?.type, tl: corners.tl?.type };
+  const s = { bl: spans(corners.bl), br: spans(corners.br), tr: spans(corners.tr), tl: spans(corners.tl) };
+  const isNotch = (corner) => ["cutout", "notch90"].includes(corner?.type);
+  const isBevel = (corner) => ["bevel", "cut"].includes(corner?.type);
 
   // Parcours anti-horaire depuis le bas-gauche ; chaque angle est traité
   // entre la fin du segment entrant et le début du segment sortant.
-  const cornerJoin = (key, inEnd, outStart, arc, notchMid) => {
-    if (!s[key]) return;
-    if (t[key] === "round") dxf.arc("CONTOUR", ...arc);
-    else if (t[key] === "cut") dxf.line("CONTOUR", ...inEnd, ...outStart);
-    else if (t[key] === "notch90") {
+  const cornerJoin = (corner, inEnd, outStart, arc, notchMid) => {
+    if (!corner || corner.type === "square" || !corner.type) return;
+    if (corner.type === "round") dxf.arc("CONTOUR", ...arc);
+    else if (isBevel(corner)) dxf.line("CONTOUR", ...inEnd, ...outStart);
+    else if (isNotch(corner)) {
       dxf.line("CONTOUR", ...inEnd, ...notchMid);
       dxf.line("CONTOUR", ...notchMid, ...outStart);
     }
   };
 
   // Bas (avant), de gauche à droite.
-  dxf.line("CONTOUR", x + s.bl, y, x + width - s.br, y);
-  cornerJoin("br", [x + width - s.br, y], [x + width, y + s.br],
-    [x + width - s.br, y + s.br, s.br, 270, 360], [x + width - s.br, y + s.br]);
+  dxf.line("CONTOUR", x + s.bl.dx, y, x + width - s.br.dx, y);
+  cornerJoin(corners.br, [x + width - s.br.dx, y], [x + width, y + s.br.dy],
+    [x + width - s.br.dx, y + s.br.dy, s.br.dx, 270, 360], [x + width - s.br.dx, y + s.br.dy]);
   // Droite, de bas en haut.
-  dxf.line("CONTOUR", x + width, y + s.br, x + width, y + height - s.tr);
-  cornerJoin("tr", [x + width, y + height - s.tr], [x + width - s.tr, y + height],
-    [x + width - s.tr, y + height - s.tr, s.tr, 0, 90], [x + width - s.tr, y + height - s.tr]);
+  dxf.line("CONTOUR", x + width, y + s.br.dy, x + width, y + height - s.tr.dy);
+  cornerJoin(corners.tr, [x + width, y + height - s.tr.dy], [x + width - s.tr.dx, y + height],
+    [x + width - s.tr.dx, y + height - s.tr.dy, s.tr.dx, 0, 90], [x + width - s.tr.dx, y + height - s.tr.dy]);
   // Haut (arrière), de droite à gauche.
-  dxf.line("CONTOUR", x + width - s.tr, y + height, x + s.tl, y + height);
-  cornerJoin("tl", [x + s.tl, y + height], [x, y + height - s.tl],
-    [x + s.tl, y + height - s.tl, s.tl, 90, 180], [x + s.tl, y + height - s.tl]);
+  dxf.line("CONTOUR", x + width - s.tr.dx, y + height, x + s.tl.dx, y + height);
+  cornerJoin(corners.tl, [x + s.tl.dx, y + height], [x, y + height - s.tl.dy],
+    [x + s.tl.dx, y + height - s.tl.dy, s.tl.dx, 90, 180], [x + s.tl.dx, y + height - s.tl.dy]);
   // Gauche, de haut en bas.
-  dxf.line("CONTOUR", x, y + height - s.tl, x, y + s.bl);
-  cornerJoin("bl", [x, y + s.bl], [x + s.bl, y],
-    [x + s.bl, y + s.bl, s.bl, 180, 270], [x + s.bl, y + s.bl]);
+  dxf.line("CONTOUR", x, y + height - s.tl.dy, x, y + s.bl.dy);
+  cornerJoin(corners.bl, [x, y + s.bl.dy], [x + s.bl.dx, y],
+    [x + s.bl.dx, y + s.bl.dy, s.bl.dx, 180, 270], [x + s.bl.dx, y + s.bl.dy]);
 }
 
 // Écrit chaque pièce fabriquée côte à côte avec ses découpes et annotations.

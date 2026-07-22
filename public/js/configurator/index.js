@@ -8,6 +8,7 @@ import { renderMaterialStep } from "./material.js";
 import { renderDesignStep } from "./canvas.js";
 import { renderCredenceView } from "./credence.js";
 import { renderQuoteStep } from "./quote.js";
+import { renderDetailEditor } from "./details.js";
 
 let saveTimer = null;
 let pendingSave = false;
@@ -15,7 +16,9 @@ let pendingSave = false;
 export function openConfigurator(projectId, step) {
   const project = state.data.projects.find((p) => p.id === projectId);
   if (!project) { toast("Projet introuvable.", "error"); return; }
-  resetConfigurator(projectId, step || (project.pieces?.length ? "design" : "material"));
+  // Comme dans l'app d'origine : on arrive directement sur l'étape Dessin,
+  // la matière se règle dans le bandeau au-dessus du plan.
+  resetConfigurator(projectId, step || "design");
   state.view = "configurator";
   window.dispatchEvent(new Event("marbexa:render"));
 }
@@ -90,15 +93,20 @@ export function renderConfigurator() {
   const body = cfg.step === "material" ? renderMaterialStep(project)
     : cfg.step === "credence" ? renderCredenceView(project)
     : cfg.step === "quote" ? renderQuoteStep(project)
+    : cfg.detailPieceId ? renderDetailEditor()
     : renderDesignStep(project);
 
+  const nextAction = cfg.step === "material"
+    ? `<button class="btn btn-primary" data-action="cfg-step" data-step="design">Passer au dessin →</button>`
+    : `<button class="btn btn-primary" data-action="cfg-step" data-step="quote">Passer au chiffrage →</button>`;
   const footer = `
     <div class="flow-footer">
       <span class="save-state">${pendingSave ? "Modifications non enregistrées…" : "Projet enregistré"}</span>
       <div style="display:flex;gap:8px">
         ${cfg.step === "credence" ? `<button class="btn btn-ghost" data-action="cfg-step" data-step="design">← Vue d'ensemble</button>` : ""}
+        ${cfg.detailPieceId ? `<button class="btn btn-ghost" data-action="close-details">← Vue d'ensemble</button>` : ""}
         <button class="btn btn-dark" data-action="cfg-save">Enregistrer</button>
-        <button class="btn btn-primary" data-action="cfg-step" data-step="quote">Passer au chiffrage →</button>
+        ${nextAction}
       </div>
     </div>`;
 
@@ -110,6 +118,7 @@ register({
   "cfg-save": () => { saveProject(true, { rerender: true }); toast("Projet enregistré."); },
   "cfg-step": (el) => {
     state.configurator.step = el.dataset.step;
+    state.configurator.detailPieceId = null;
     saveProject(true, { rerender: true });
   },
   "cfg-credence-view": (el) => {

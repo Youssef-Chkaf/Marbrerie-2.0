@@ -198,7 +198,7 @@ async function createProject(fields, pieces, importSource) {
   const { project } = await request("/api/projects", { body: payload });
   await refresh();
   closeModal();
-  openConfigurator(project.id, pieces?.length ? "design" : "material");
+  openConfigurator(project.id, "design");
 }
 
 export async function handleProjectForms(form) {

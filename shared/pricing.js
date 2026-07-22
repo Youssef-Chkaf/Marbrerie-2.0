@@ -101,9 +101,12 @@ function deliveryForDistance(settings, distanceKm) {
 }
 
 // Prestations associées aux types d'angles travaillés (grille e-marbrier).
+// round = extrémité arrondie · bevel/cut = coupe à 45° · cutout/notch90 = découpe d'angle.
 const CORNER_SERVICES = {
   round: "corner-round-end",
+  bevel: "corner-bevel",
   cut: "corner-bevel",
+  cutout: "corner-90",
   notch90: "corner-90",
 };
 
@@ -177,11 +180,15 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) 
   for (const cut of piece.cutouts || []) {
     const service = findService(catalog, cut.serviceId);
     if (!service) continue;
-    const reference = cut.brand || cut.reference ? ` (${[cut.brand, cut.reference].filter(Boolean).join(" ")})` : "";
+    const reference = cut.brand || cut.reference ? ` - ${[cut.brand, cut.reference].filter(Boolean).join(" ")}` : "";
+    // Pose à fleur : les cotes de défonçage figurent sur le devis et le BC usine.
+    const flushDetail = cut.serviceId === "cut-flush"
+      ? ` — Défonçage : découpe intérieure ${Math.round(cut.flushInnerWidthMm || cut.widthMm)} × ${Math.round(cut.flushInnerHeightMm || cut.heightMm)} mm, défonçage extérieur ${Math.round(cut.flushOuterWidthMm || cut.widthMm)} × ${Math.round(cut.flushOuterHeightMm || cut.heightMm)} mm`
+      : "";
     lines.push(makeLine({
       category: "Découpe",
       code: serviceCode(service, family),
-      description: `${service.label}${reference}`,
+      description: `${service.label}${reference}${flushDetail}`,
       quantity: 1,
       unit: "un",
       factoryUnitPrice: snappedService(service),
@@ -209,9 +216,9 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) 
     const service = findService(catalog, CORNER_SERVICES[corner.type])
       || findService(catalog, corner.type === "cut" ? "cut-outside" : "cut-rounded-end");
     if (!service) continue;
-    const detail = corner.type === "round" ? `, rayon ${Number(corner.radiusMm || 0)} mm`
-      : corner.type === "notch90" ? ` ${Number(corner.cutMm || 0)} mm`
-      : ` ${Number(corner.cutMm || 0)} mm`;
+    const detail = corner.type === "round"
+      ? `, rayon ${Number(corner.radiusMm || 0)} mm`
+      : ` ${Number(corner.cutXmm || corner.cutMm || 0)} × ${Number(corner.cutYmm || corner.cutMm || 0)} mm`;
     lines.push(makeLine({
       category: "Façonnage",
       code: serviceCode(service, family),

@@ -2,7 +2,8 @@
 // accrochage entre pièces et inspecteur latéral.
 
 import { state, currentProject } from "../state.js";
-import { esc, number } from "../ui.js";
+import { esc, number, money } from "../ui.js";
+import { openDetailEditor } from "./details.js";
 import { register } from "../actions.js";
 import { makePiece, plateDims } from "/shared/plan.js";
 import { saveProject } from "./index.js";
@@ -67,11 +68,25 @@ export function renderDesignStep(project) {
   const material = state.data.catalog.materials.find((m) => m.id === project.materialId);
   const transform = `translate(${cfg.panX || 0} ${cfg.panY || 0}) scale(${cfg.zoom || 1})`;
 
+  // Bandeau matière : cascade Produit → Coloris → Épaisseur → Finition en ligne,
+  // comme dans l'app d'origine.
+  const materials = state.data.catalog.materials.filter((m) => m.active);
+  const brands = [...new Set(materials.map((m) => m.brand))];
+  const colors = materials.filter((m) => m.brand === (material?.brand || brands[0]));
+  const finishes = [...new Map((material?.variants || []).map((v) => [v.finish, v.finishLabel || v.finish])).entries()];
+  const variantsOfFinish = (material?.variants || []).filter((v) => v.finish === project.finish);
+  const thicknesses = [...new Set(variantsOfFinish.map((v) => v.thicknessMm))].sort((a, b) => a - b);
+  const currentVariant = variantsOfFinish.find((v) => v.thicknessMm === Number(project.thicknessMm)) || variantsOfFinish[0];
+  const dims = plateDims(material, project.finish, project.thicknessMm);
+
   return `
-  <div class="material-strip" style="padding:9px 18px;display:flex;gap:12px;align-items:center;background:var(--paper,#fbfaf7);border-bottom:1px solid #e2ded6;flex-wrap:wrap">
-    <span class="material-chip">Matière principale : <strong>${esc(material ? `${material.brand} · ${material.color}` : "—")}</strong> · ${esc(project.thicknessMm)} mm · ${esc(project.finish)}</span>
-    <span class="help">${(() => { const d = plateDims(material, project.finish, project.thicknessMm); return d ? `Plaque maxi : ${number(d.maxLengthMm)} × ${number(d.maxWidthMm)} mm` : ""; })()}</span>
-    <button class="btn btn-small btn-ghost" data-action="cfg-step" data-step="material">Changer</button>
+  <div class="material-strip">
+    <div class="material-chip"><span class="swatch" style="background:${esc(material?.tone || "#999")}"></span><strong>Matière principale</strong></div>
+    <label>Produit<select data-strip-field="brand">${brands.map((b) => `<option ${b === material?.brand ? "selected" : ""}>${esc(b)}</option>`).join("")}</select></label>
+    <label>Coloris<select data-strip-field="materialId">${colors.map((m) => `<option value="${m.id}" ${m.id === project.materialId ? "selected" : ""}>${esc(m.color)}${currentVariant && m.id === project.materialId ? ` · dès ${money(Math.min(...m.variants.map((v) => v.priceM2)))}/m²` : ""}</option>`).join("")}</select></label>
+    <label>Finition<select data-strip-field="finish">${finishes.map(([code, label]) => `<option value="${esc(code)}" ${project.finish === code ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
+    <label>Épaisseur<select data-strip-field="thicknessMm">${thicknesses.map((t) => `<option value="${t}" ${Number(project.thicknessMm) === t ? "selected" : ""}>${t} mm</option>`).join("")}</select></label>
+    <span class="limit-note">${dims ? `Plaque maxi : ${number(dims.maxLengthMm)} × ${number(dims.maxWidthMm)} mm` : ""}</span>
     <button class="btn btn-small btn-soft" data-action="cfg-credence-view">Crédences · vues des murs</button>
   </div>
   <div class="design-layout">
@@ -193,7 +208,43 @@ export function bindCanvas(root) {
     if (zoomLabel) zoomLabel.textContent = `${Math.round(cfg.zoom * 100)} %`;
   }, { passive: false });
 
+  // Double-clic sur une pièce fabriquée → éditeur découpes & chants.
+  svg.addEventListener("dblclick", (event) => {
+    const pieceEl = event.target.closest("[data-piece]");
+    if (!pieceEl) return;
+    const project = currentProject();
+    const piece = project?.pieces.find((p) => p.id === pieceEl.dataset.piece);
+    if (piece && !["wall", "cabinet"].includes(piece.kind)) openDetailEditor(piece.id);
+  });
+
   currentSvg = svg;
+}
+
+// Cascade du bandeau matière (Produit → Coloris → Finition → Épaisseur).
+export function handleStripField(select) {
+  if (select.dataset.stripField === undefined) return false;
+  const project = currentProject();
+  if (!project) return true;
+  const materials = state.data.catalog.materials.filter((m) => m.active);
+  const field = select.dataset.stripField;
+  if (field === "brand") {
+    const first = materials.find((m) => m.brand === select.value);
+    if (first) project.materialId = first.id;
+  } else if (field === "materialId") {
+    project.materialId = select.value;
+  } else if (field === "finish") {
+    project.finish = select.value;
+  } else if (field === "thicknessMm") {
+    project.thicknessMm = Number(select.value);
+  }
+  // Garde finition et épaisseur cohérentes avec les variantes disponibles.
+  const material = materials.find((m) => m.id === project.materialId);
+  const finishes = [...new Set((material?.variants || []).map((v) => v.finish))];
+  if (finishes.length && !finishes.includes(project.finish)) project.finish = finishes[0];
+  const thicknesses = (material?.variants || []).filter((v) => v.finish === project.finish).map((v) => v.thicknessMm);
+  if (thicknesses.length && !thicknesses.includes(Number(project.thicknessMm))) project.thicknessMm = thicknesses[0];
+  saveProject(false, { rerender: true });
+  return true;
 }
 
 // Rendu partiel pendant le drag (un seul listener global, SVG courant).

@@ -673,10 +673,10 @@ export class Api {
       if (["factory-order", "technical"].includes(type) && role === "reseller" && !order) {
         return fail(409, "Envoyez d'abord la commande à l'usine.");
       }
-      const html = type === "customer-order" ? customerOrderDocument(project, reseller)
-        : type === "factory-order" ? factoryOrderDocument(order || { number: "(brouillon)", status: project.status, revision: project.revision }, project, reseller, factory, catalog)
-        : type === "technical" ? technicalSheetDocument(order || { number: "(brouillon)", productionSteps: {} }, project, reseller, factory, catalog)
-        : quoteDocument(project, reseller);
+      const html = type === "customer-order" ? customerOrderDocument(project, reseller, factory, catalog)
+        : type === "factory-order" ? factoryOrderDocument(order || { number: "", status: project.status, revision: project.revision }, project, reseller, factory, catalog)
+        : type === "technical" ? technicalSheetDocument(order || { number: "", productionSteps: {} }, project, reseller, factory, catalog)
+        : quoteDocument(project, reseller, factory, catalog);
       return send(200, html);
     }
 
