@@ -9,7 +9,7 @@ import { actions } from "./actions.js";
 import { renderLogin } from "./views/login.js";
 import { renderFactoryDashboard, renderResellerDashboard } from "./views/dashboard.js";
 import { renderOrdersPage } from "./views/orders.js";
-import { renderProjects, handleProjectForms } from "./views/projects.js";
+import { renderProjects, handleProjectForms, handleMaterialCascade } from "./views/projects.js";
 import { renderCatalog, saveCatalogPrice, toggleCatalogItem } from "./views/catalog.js";
 import { renderResellers, handleResellerForm } from "./views/resellers.js";
 import { renderStatistics, reloadStats } from "./views/stats.js";
@@ -171,7 +171,8 @@ document.addEventListener("change", (event) => {
 
   if (el.dataset.filter !== undefined) { state.filters[el.dataset.filter] = el.value; render(); return; }
   if (el.dataset.statsRange !== undefined) { state.statsRange[el.dataset.statsRange] = el.value; reloadStats(); return; }
-  if (el.dataset.catalogPrice !== undefined) { saveCatalogPrice(el); return; }
+  if (el.dataset.catalogPrice !== undefined || el.dataset.catalogVariant !== undefined) { saveCatalogPrice(el); return; }
+  if (handleMaterialCascade(el)) return;
   if (el.dataset.selectOrder !== undefined) {
     if (el.checked) state.selectedOrderIds.push(el.dataset.selectOrder);
     else state.selectedOrderIds = state.selectedOrderIds.filter((id) => id !== el.dataset.selectOrder);
@@ -193,6 +194,16 @@ document.addEventListener("change", (event) => {
 
 document.addEventListener("input", (event) => {
   const el = event.target;
+  if (el.dataset.materialSearch !== undefined) {
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => {
+      state.materialSearch = el.value;
+      render();
+      const input = document.querySelector("[data-material-search]");
+      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }, 300);
+    return;
+  }
   if (el.dataset.catalogSearch !== undefined) {
     state.catalogSearch = el.value;
     // Filtrage en direct sans reconstruire l'input (pour garder le focus).

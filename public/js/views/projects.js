@@ -10,22 +10,54 @@ import { openOrderModal } from "./orders.js";
 
 const activeMaterials = () => state.data.catalog.materials.filter((m) => m.active);
 const brands = () => [...new Set(activeMaterials().map((m) => m.brand))];
+const finishesOf = (material) => [...new Map((material?.variants || []).map((v) => [v.finish, v.finishLabel || v.finish])).entries()];
+const thicknessesOf = (material, finish) => (material?.variants || []).filter((v) => v.finish === finish).map((v) => v.thicknessMm).sort((a, b) => a - b);
 
+// Cascade Produit → Coloris → Finition → Épaisseur (catalogue à variantes).
 export function materialSelectors(prefix, selected = {}) {
   const first = activeMaterials()[0];
   const brand = selected.brand || first?.brand;
   const colors = activeMaterials().filter((m) => m.brand === brand);
   const material = colors.find((m) => m.id === selected.materialId) || colors[0];
-  const thicknesses = Object.keys(material?.prices || { 20: 0 }).map(Number).sort((a, b) => a - b);
+  const finishes = finishesOf(material);
+  const finish = finishes.some(([code]) => code === selected.finish) ? selected.finish : finishes[0]?.[0];
+  const thicknesses = thicknessesOf(material, finish);
   return `
     <label>Produit<select data-ms="${prefix}" data-ms-field="brand" required>
       ${brands().map((b) => `<option ${b === brand ? "selected" : ""}>${esc(b)}</option>`).join("")}</select></label>
     <label>Coloris<select name="materialId" data-ms="${prefix}" data-ms-field="color" required>
-      ${colors.map((m) => `<option value="${m.id}" ${m.id === material?.id ? "selected" : ""}>${esc(m.color)} · ${esc(m.collection)}</option>`).join("")}</select></label>
+      ${colors.map((m) => `<option value="${m.id}" ${m.id === material?.id ? "selected" : ""}>${esc(m.color)}</option>`).join("")}</select></label>
+    <label>Finition<select name="finish" data-ms="${prefix}" data-ms-field="finish" required>
+      ${finishes.map(([code, label]) => `<option value="${esc(code)}" ${finish === code ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
     <label>Épaisseur<select name="thicknessMm" required>
-      ${thicknesses.map((t) => `<option value="${t}" ${Number(selected.thicknessMm) === t ? "selected" : ""}>${t} mm</option>`).join("")}</select></label>
-    <label>Finition<select name="finish" required>
-      ${(material?.finish || ["Poli"]).map((f) => `<option ${selected.finish === f ? "selected" : ""}>${esc(f)}</option>`).join("")}</select></label>`;
+      ${thicknesses.map((t) => `<option value="${t}" ${Number(selected.thicknessMm) === t ? "selected" : ""}>${t} mm</option>`).join("")}</select></label>`;
+}
+
+// Reconstruit les selects dépendants quand marque / coloris / finition changent.
+export function handleMaterialCascade(select) {
+  if (select.dataset.ms === undefined) return false;
+  const form = select.closest("form");
+  if (!form) return true;
+  const container = form.querySelector(`[data-ms="${select.dataset.ms}"]`)?.closest(".form-grid") || form;
+  const brandSel = container.querySelector('[data-ms-field="brand"]');
+  const colorSel = container.querySelector('[name="materialId"]');
+  const finishSel = container.querySelector('[name="finish"]');
+  const thickSel = container.querySelector('[name="thicknessMm"]');
+  const brand = brandSel?.value;
+  const colors = activeMaterials().filter((m) => m.brand === brand);
+  if (select.dataset.msField === "brand" && colorSel) {
+    colorSel.innerHTML = colors.map((m) => `<option value="${m.id}">${esc(m.color)}</option>`).join("");
+  }
+  const material = colors.find((m) => m.id === colorSel?.value) || colors[0];
+  const finishes = finishesOf(material);
+  if (["brand", "color"].includes(select.dataset.msField) && finishSel) {
+    finishSel.innerHTML = finishes.map(([code, label]) => `<option value="${esc(code)}">${esc(label)}</option>`).join("");
+  }
+  const finish = finishSel?.value || finishes[0]?.[0];
+  if (thickSel) {
+    thickSel.innerHTML = thicknessesOf(material, finish).map((t) => `<option value="${t}">${t} mm</option>`).join("");
+  }
+  return true;
 }
 
 export function renderProjects() {

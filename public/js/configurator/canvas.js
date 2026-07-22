@@ -4,7 +4,7 @@
 import { state, currentProject } from "../state.js";
 import { esc, number } from "../ui.js";
 import { register } from "../actions.js";
-import { makePiece } from "/shared/plan.js";
+import { makePiece, plateDims } from "/shared/plan.js";
 import { saveProject } from "./index.js";
 import { renderInspector } from "./inspector.js";
 
@@ -70,7 +70,7 @@ export function renderDesignStep(project) {
   return `
   <div class="material-strip" style="padding:9px 18px;display:flex;gap:12px;align-items:center;background:var(--paper,#fbfaf7);border-bottom:1px solid #e2ded6;flex-wrap:wrap">
     <span class="material-chip">Matière principale : <strong>${esc(material ? `${material.brand} · ${material.color}` : "—")}</strong> · ${esc(project.thicknessMm)} mm · ${esc(project.finish)}</span>
-    <span class="help">Plaque maxi : ${material ? `${number(material.maxLengthMm)} × ${number(material.maxWidthMm)} mm` : "—"}</span>
+    <span class="help">${(() => { const d = plateDims(material, project.finish, project.thicknessMm); return d ? `Plaque maxi : ${number(d.maxLengthMm)} × ${number(d.maxWidthMm)} mm` : ""; })()}</span>
     <button class="btn btn-small btn-ghost" data-action="cfg-step" data-step="material">Changer</button>
     <button class="btn btn-small btn-soft" data-action="cfg-credence-view">Crédences · vues des murs</button>
   </div>

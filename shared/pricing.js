@@ -1,7 +1,16 @@
 // Moteur de chiffrage Marbexa.
-// Calcule le devis complet d'un projet : matière, chants, découpes, finitions,
+// Calcule le devis complet d'un projet : matière, chants, découpes, angles,
 // livraison, marge revendeur, TVA et remise. Utilisé à l'identique par le
 // navigateur (aperçu temps réel) et le serveur (montants de référence).
+//
+// Règles héritées d'e-marbrier (validées par 15 cas de test) :
+// - la surface n'est JAMAIS arrondie : L × l / 1 000 000 en pleine précision ;
+// - DOUBLE ARRONDI : le prix unitaire de vente est arrondi à 2 décimales AVANT
+//   la multiplication par la quantité, puis le montant est arrondi.
+//   Ex : 120,06 × 2,10 = 252,126 → 252,13 ; × 1,3 = 327,769 → 327,77
+//   (et non 327,76 avec un seul arrondi final) ;
+// - SNAPSHOT : les prix sont figés à la création du devis (options.snapshot).
+//   Un changement de tarif catalogue n'affecte que les nouveaux devis.
 
 import { MANUFACTURED_KINDS, EDGE_SIDES, CORNER_KEYS, FINISH_SURCHARGE_KEYWORDS } from "./constants.js";
 
@@ -26,12 +35,33 @@ function serviceCode(service, family) {
   return service.codes?.[family === "ultra" ? "ultra" : "stone"] || "";
 }
 
+// Sélectionne la variante (finition × épaisseur) d'un matériau ; à défaut,
+// même finition avec l'épaisseur la plus proche, sinon la moins chère.
+export function findVariant(material, finish, thicknessMm) {
+  const variants = material?.variants || [];
+  if (!variants.length) return null;
+  const thickness = Number(thicknessMm || 0);
+  const exact = variants.find((v) => v.finish === finish && v.thicknessMm === thickness);
+  if (exact) return exact;
+  const sameFinish = variants.filter((v) => v.finish === finish);
+  if (sameFinish.length) {
+    return sameFinish.reduce((best, v) =>
+      Math.abs(v.thicknessMm - thickness) < Math.abs(best.thicknessMm - thickness) ? v : best);
+  }
+  const sameThickness = variants.filter((v) => v.thicknessMm === thickness);
+  if (sameThickness.length) return sameThickness.reduce((a, b) => (a.priceM2 <= b.priceM2 ? a : b));
+  return variants.reduce((a, b) => (a.priceM2 <= b.priceM2 ? a : b));
+}
+
+// Prix d'achat matière au m² (avant marge). Nouveau modèle : variantes ;
+// ancien modèle (prices par épaisseur + majoration finition) conservé en repli.
 function materialUnitPrice(material, thicknessMm, finish, finishSurchargePct) {
   if (!material) return 0;
+  const variant = findVariant(material, finish, thicknessMm);
+  if (variant) return Number(variant.priceM2 || 0);
   const prices = material.prices || {};
   let base = Number(prices[thicknessMm] ?? prices[String(thicknessMm)] ?? 0);
   if (!base) {
-    // Prend l'épaisseur disponible la plus proche.
     const available = Object.keys(prices).map(Number).filter(Boolean).sort((a, b) => a - b);
     if (available.length) {
       const closest = available.reduce((best, item) => (Math.abs(item - thicknessMm) < Math.abs(best - thicknessMm) ? item : best), available[0]);
@@ -50,26 +80,37 @@ function pieceMaterial(catalog, project, piece) {
   return findMaterial(catalog, materialId);
 }
 
+// Surface facturée en m² — AUCUN arrondi (règle e-marbrier).
 function pieceAreaM2(piece) {
-  return round3((Number(piece.lengthMm || 0) * Number(piece.widthMm || 0)) / 1e6);
+  return (Number(piece.lengthMm || 0) * Number(piece.widthMm || 0)) / 1e6;
 }
 
+// Longueur de chant en mètres — pleine précision.
 function edgeLengthM(piece, edge) {
   const sideLength = ["top", "bottom"].includes(edge.side) ? Number(piece.lengthMm || 0) : Number(piece.widthMm || 0);
   const length = Number(edge.lengthMm || sideLength || 0);
-  return round3(Math.min(length, sideLength || length) / 1000);
+  return Math.min(length, sideLength || length) / 1000;
 }
 
 function deliveryForDistance(settings, distanceKm) {
+  if (!Number(distanceKm)) return 0; // pas de distance = pas de livraison estimée
   const tiers = [...(settings?.deliveryTiers || [])].sort((a, b) => a.maxKm - b.maxKm);
   if (!tiers.length) return 0;
   const tier = tiers.find((item) => Number(distanceKm || 0) <= Number(item.maxKm)) || tiers[tiers.length - 1];
   return Number(tier.price || 0);
 }
 
+// Prestations associées aux types d'angles travaillés (grille e-marbrier).
+const CORNER_SERVICES = {
+  round: "corner-round-end",
+  cut: "corner-bevel",
+  notch90: "corner-90",
+};
+
 function makeLine({ category, code, description, quantity, unit, factoryUnitPrice, marginPct, vatPct, piece }) {
   const unitPrice = round2(factoryUnitPrice);
   const amount = round2(unitPrice * quantity);
+  // Double arrondi : P.U. client arrondi AVANT multiplication par la quantité.
   const customerUnitPrice = round2(unitPrice * (1 + Number(marginPct || 0) / 100));
   const customerAmount = round2(customerUnitPrice * quantity);
   const customerVatAmount = round2(customerAmount * Number(vatPct || 0) / 100);
@@ -77,7 +118,7 @@ function makeLine({ category, code, description, quantity, unit, factoryUnitPric
     category,
     code,
     description,
-    quantity,
+    quantity: round3(quantity), // valeur affichée ; les montants utilisent la quantité exacte
     unit,
     factoryUnitPrice: unitPrice,
     unitPrice,
@@ -92,7 +133,7 @@ function makeLine({ category, code, description, quantity, unit, factoryUnitPric
   };
 }
 
-function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
+function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) {
   const lines = [];
   const material = pieceMaterial(catalog, project, piece);
   const family = material?.family || "stone";
@@ -100,14 +141,19 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
   const finish = piece.finish || project.finish;
   const area = pieceAreaM2(piece);
 
+  const snappedService = (service) => snap(`srv:${service.id}|${family}`, () => servicePrice(service, family));
+
   if (material && area > 0) {
+    const variant = findVariant(material, finish, thickness);
+    const finishLabel = variant?.finishLabel || finish || "";
     lines.push(makeLine({
       category: "Matière",
-      code: material.group || "",
-      description: `${piece.name} - ${material.brand} ${material.color}, ${thickness} mm`,
+      code: material.group || variant?.finish || "",
+      description: `${piece.name} - ${material.brand} ${material.color}, ${finishLabel}, ${thickness} mm`,
       quantity: area,
       unit: "m²",
-      factoryUnitPrice: materialUnitPrice(material, thickness, finish, settings?.finishSurchargePct),
+      factoryUnitPrice: snap(`mat:${material.id}|${variant?.finish || finish}|${variant?.thicknessMm || thickness}`,
+        () => materialUnitPrice(material, thickness, finish, settings?.finishSurchargePct)),
       marginPct, vatPct, piece,
     }));
   }
@@ -123,7 +169,7 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
       description: `${service.label} - ${EDGE_SIDES[edge.side] || edge.side}`,
       quantity,
       unit: "ml",
-      factoryUnitPrice: servicePrice(service, family),
+      factoryUnitPrice: snappedService(service),
       marginPct, vatPct, piece,
     }));
   }
@@ -138,7 +184,7 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
       description: `${service.label}${reference}`,
       quantity: 1,
       unit: "un",
-      factoryUnitPrice: servicePrice(service, family),
+      factoryUnitPrice: snappedService(service),
       marginPct, vatPct, piece,
     }));
     // Rainures supplémentaires d'un égouttoir au-delà des 5 incluses.
@@ -151,7 +197,7 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
           description: extra.label,
           quantity: Number(cut.grooves) - 5,
           unit: "un",
-          factoryUnitPrice: servicePrice(extra, family),
+          factoryUnitPrice: snappedService(extra),
           marginPct, vatPct, piece,
         }));
       }
@@ -160,16 +206,19 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
 
   for (const [cornerKey, corner] of Object.entries(piece.corners || {})) {
     if (!corner || corner.type === "square" || !corner.type) continue;
-    const service = findService(catalog, corner.type === "cut" ? "cut-outside" : "cut-rounded-end");
+    const service = findService(catalog, CORNER_SERVICES[corner.type])
+      || findService(catalog, corner.type === "cut" ? "cut-outside" : "cut-rounded-end");
     if (!service) continue;
-    const detail = corner.type === "round" ? `, rayon ${Number(corner.radiusMm || 0)} mm` : ` ${Number(corner.cutMm || 0)} mm`;
+    const detail = corner.type === "round" ? `, rayon ${Number(corner.radiusMm || 0)} mm`
+      : corner.type === "notch90" ? ` ${Number(corner.cutMm || 0)} mm`
+      : ` ${Number(corner.cutMm || 0)} mm`;
     lines.push(makeLine({
       category: "Façonnage",
       code: serviceCode(service, family),
       description: `${service.label} - ${CORNER_KEYS[cornerKey] || cornerKey}${detail}`,
       quantity: 1,
       unit: "un",
-      factoryUnitPrice: servicePrice(service, family),
+      factoryUnitPrice: snappedService(service),
       marginPct, vatPct, piece,
     }));
   }
@@ -183,7 +232,7 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
       description: service.label,
       quantity: Number(extra.quantity || 1),
       unit: service.unit,
-      factoryUnitPrice: servicePrice(service, family),
+      factoryUnitPrice: snappedService(service),
       marginPct, vatPct, piece,
     }));
   }
@@ -192,22 +241,32 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct) {
 }
 
 // Calcule le devis complet d'un projet.
-// options.groupSize / options.groupDeliveryTotal servent aux livraisons regroupées.
+// options.snapshot : objet mutable { clé → prix d'achat } qui fige les tarifs
+//   au premier calcul (source de vérité pour toute la vie du devis).
+// options.groupSize / options.groupDeliveryTotal : livraisons regroupées.
 export function computeQuote(project, catalog, factorySettings, options = {}) {
   const marginPct = Number(project.marginPct || 0);
   const vatPct = Number(project.vatPct ?? 20);
   const manufactured = (project.pieces || []).filter((piece) => MANUFACTURED_KINDS.includes(piece.kind));
 
+  const snapshot = options.snapshot || null;
+  const snap = (key, compute) => {
+    if (!snapshot) return compute();
+    if (snapshot[key] === undefined || snapshot[key] === null) snapshot[key] = compute();
+    return Number(snapshot[key]);
+  };
+
   const lines = [];
   for (const piece of manufactured) {
-    lines.push(...pieceLines(catalog, project, piece, factorySettings, marginPct, vatPct));
+    lines.push(...pieceLines(catalog, project, piece, factorySettings, marginPct, vatPct, snap));
   }
 
   const materialSubtotal = round2(lines.filter((l) => l.category === "Matière").reduce((sum, l) => sum + l.amount, 0));
   const serviceSubtotal = round2(lines.filter((l) => l.category !== "Matière").reduce((sum, l) => sum + l.amount, 0));
 
-  // Livraison : forfait par tranche kilométrique, éventuellement partagé.
-  const baseDelivery = deliveryForDistance(factorySettings, project.deliveryDistanceKm);
+  // Livraison : forfait par tranche kilométrique (figé aussi), partageable.
+  const distanceKm = Number(project.deliveryDistanceKm || 0);
+  const baseDelivery = snap(`del:${distanceKm}`, () => deliveryForDistance(factorySettings, distanceKm));
   const groupSize = Math.max(1, Number(options.groupSize || project.deliveryGroupSize || 1));
   const groupDeliveryTotal = Number(options.groupDeliveryTotal ?? baseDelivery);
   const delivery = round2(groupDeliveryTotal / groupSize);
@@ -216,8 +275,8 @@ export function computeQuote(project, catalog, factorySettings, options = {}) {
       category: "Livraison",
       code: "T",
       description: groupSize > 1
-        ? `Livraison groupée (${groupSize} commandes) - ${project.deliveryDistanceKm || 0} km`
-        : `Livraison estimée - ${project.deliveryDistanceKm || 0} km`,
+        ? `Livraison groupée (${groupSize} commandes) - ${distanceKm} km`
+        : `Livraison estimée - ${distanceKm} km`,
       quantity: 1,
       unit: "forfait",
       factoryUnitPrice: delivery,

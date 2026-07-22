@@ -1,0 +1,26 @@
+id,code,libelle
+1,POLI,Poli lisse et brillant
+2,VIEILLI,Vieilli
+3,SATINE,Satiné
+4,ADOUCI,Adouci
+5,SUEDE,Suède
+6,VOLCANO,Volcano
+7,MAT,Mat
+8,TEXTURE,Texturé
+10,ANTIQUE,Antique
+11,BUSH_HAMMERED,Bush Hammered
+12,CASHMERE,Cashmere
+13,DECOR_POLISHED,Decor Polished
+14,GLOSSY,Glossy
+15,HOND,Hond
+16,MATE_TEXTURE,Mate Texture
+17,NATURAL,Natural
+18,RIVERWASHED,Riverwashed
+19,SILK,Silk
+20,SLATE,Slate
+21,SMOOTH,Smooth
+22,STEEL_TOUCH,Steel Touch
+23,ULTRASOFT,Ultrasoft
+24,VELVET,Velvet
+25,VELVET_TEXTURE,Velvet Texture
+26,WOOD,Wood

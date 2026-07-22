@@ -95,15 +95,26 @@ export function rotatedBox(width, height, rotationDeg) {
   };
 }
 
+// Format de plaque applicable à une pièce (variante finition × épaisseur,
+// avec repli sur les champs historiques du matériau).
+export function plateDims(material, finish, thicknessMm) {
+  if (!material) return null;
+  const variant = (material.variants || []).find((v) => v.finish === finish && v.thicknessMm === Number(thicknessMm))
+    || (material.variants || [])[0];
+  return {
+    maxLengthMm: Number(variant?.maxLengthMm || material.maxLengthMm || 3200),
+    maxWidthMm: Number(variant?.maxWidthMm || material.maxWidthMm || 1600),
+  };
+}
+
 // Contrôles de faisabilité effectués avant l'envoi à l'usine.
-export function validatePiece(piece, material) {
+export function validatePiece(piece, material, projectFinish, projectThickness) {
   const issues = [];
   const isCredence = piece.kind === "splashback";
-  if (material) {
-    const maxL = Number(material.maxLengthMm || Infinity);
-    const maxW = Number(material.maxWidthMm || Infinity);
-    if (piece.lengthMm > maxL || piece.widthMm > maxW) {
-      issues.push(`${piece.name} : dépasse la plaque maxi ${maxL} × ${maxW} mm — prévoir un joint.`);
+  const dims = plateDims(material, piece.finish || projectFinish, piece.thicknessMm || projectThickness);
+  if (dims) {
+    if (piece.lengthMm > dims.maxLengthMm || piece.widthMm > dims.maxWidthMm) {
+      issues.push(`${piece.name} : dépasse la plaque maxi ${dims.maxLengthMm} × ${dims.maxWidthMm} mm — prévoir un joint.`);
     }
   }
   for (const cut of piece.cutouts || []) {
@@ -127,7 +138,7 @@ export function validateProject(project, catalog) {
   for (const piece of project.pieces || []) {
     if (!["worktop", "splashback", "panel"].includes(piece.kind)) continue;
     const material = (catalog?.materials || []).find((m) => m.id === (piece.materialId || project.materialId));
-    issues.push(...validatePiece(piece, material));
+    issues.push(...validatePiece(piece, material, project.finish, project.thicknessMm));
   }
   return issues;
 }

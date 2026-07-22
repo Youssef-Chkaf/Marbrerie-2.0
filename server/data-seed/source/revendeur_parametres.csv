@@ -1,0 +1,2 @@
+id,revendeur_id,coef_matiere,coef_prestations,coef_transport,coef_pose,tva_matiere,tva_prestations,tva_transport,tva_pose,updated_at,prix_arrondi
+1,1,2.10,2.10,1.00,1.00,20.00,20.00,20.00,20.00,2026-06-26 13:27:52.526584,67.77

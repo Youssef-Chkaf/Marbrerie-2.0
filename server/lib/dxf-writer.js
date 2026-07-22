@@ -74,6 +74,48 @@ class DxfBuilder {
 
 const round = (value) => Math.round(value * 100) / 100;
 
+// Contour d'une pièce avec angles travaillés (grille e-marbrier) :
+// round = arrondi (arc), cut = pan coupé (chanfrein), notch90 = découpe 90°
+// (redan rentrant). `corners` : { bl, br, tr, tl } avec {type, radiusMm|cutMm}.
+function pieceOutline(dxf, x, y, width, height, corners) {
+  const size = (corner) => {
+    if (!corner || !corner.type || corner.type === "square") return 0;
+    const value = corner.type === "round" ? corner.radiusMm : corner.cutMm;
+    return Math.max(0, Math.min(Number(value || 0), width / 2, height / 2));
+  };
+  const s = { bl: size(corners.bl), br: size(corners.br), tr: size(corners.tr), tl: size(corners.tl) };
+  const t = { bl: corners.bl?.type, br: corners.br?.type, tr: corners.tr?.type, tl: corners.tl?.type };
+
+  // Parcours anti-horaire depuis le bas-gauche ; chaque angle est traité
+  // entre la fin du segment entrant et le début du segment sortant.
+  const cornerJoin = (key, inEnd, outStart, arc, notchMid) => {
+    if (!s[key]) return;
+    if (t[key] === "round") dxf.arc("CONTOUR", ...arc);
+    else if (t[key] === "cut") dxf.line("CONTOUR", ...inEnd, ...outStart);
+    else if (t[key] === "notch90") {
+      dxf.line("CONTOUR", ...inEnd, ...notchMid);
+      dxf.line("CONTOUR", ...notchMid, ...outStart);
+    }
+  };
+
+  // Bas (avant), de gauche à droite.
+  dxf.line("CONTOUR", x + s.bl, y, x + width - s.br, y);
+  cornerJoin("br", [x + width - s.br, y], [x + width, y + s.br],
+    [x + width - s.br, y + s.br, s.br, 270, 360], [x + width - s.br, y + s.br]);
+  // Droite, de bas en haut.
+  dxf.line("CONTOUR", x + width, y + s.br, x + width, y + height - s.tr);
+  cornerJoin("tr", [x + width, y + height - s.tr], [x + width - s.tr, y + height],
+    [x + width - s.tr, y + height - s.tr, s.tr, 0, 90], [x + width - s.tr, y + height - s.tr]);
+  // Haut (arrière), de droite à gauche.
+  dxf.line("CONTOUR", x + width - s.tr, y + height, x + s.tl, y + height);
+  cornerJoin("tl", [x + s.tl, y + height], [x, y + height - s.tl],
+    [x + s.tl, y + height - s.tl, s.tl, 90, 180], [x + s.tl, y + height - s.tl]);
+  // Gauche, de haut en bas.
+  dxf.line("CONTOUR", x, y + height - s.tl, x, y + s.bl);
+  cornerJoin("bl", [x, y + s.bl], [x + s.bl, y],
+    [x + s.bl, y + s.bl, s.bl, 180, 270], [x + s.bl, y + s.bl]);
+}
+
 // Écrit chaque pièce fabriquée côte à côte avec ses découpes et annotations.
 export function projectToDxf(project, catalog) {
   const dxf = new DxfBuilder();
@@ -86,11 +128,10 @@ export function projectToDxf(project, catalog) {
     const W = Number(piece.widthMm || 0);
     const corners = piece.corners || {};
     // En repère DXF (Y vers le haut), l'avant du plan (bottom à l'écran) est en Y=0.
-    dxf.roundedRect("CONTOUR", offsetX, 0, L, W, {
-      bl: corners.bottomLeft?.type === "round" ? corners.bottomLeft.radiusMm : 0,
-      br: corners.bottomRight?.type === "round" ? corners.bottomRight.radiusMm : 0,
-      tr: corners.topRight?.type === "round" ? corners.topRight.radiusMm : 0,
-      tl: corners.topLeft?.type === "round" ? corners.topLeft.radiusMm : 0,
+    // À l'écran, top = arrière : topLeft écran = coin (x, W) en DXF.
+    pieceOutline(dxf, offsetX, 0, L, W, {
+      bl: corners.bottomLeft, br: corners.bottomRight,
+      tr: corners.topRight, tl: corners.topLeft,
     });
 
     for (const cut of piece.cutouts || []) {

@@ -22,9 +22,19 @@ export function verifyPassword(password, stored) {
   return scryptSync(password, salt, 32).toString("hex") === hash;
 }
 
+// Prestations d'angle issues du chiffrage e-marbrier (prix d'achat, hors marge).
+// Grille extraite du code historique — à faire valider par l'usine :
+// découpe 90° = 28,00 € · pan coupé = 34,19 € · extrémité arrondie = 67,77 €.
+const EMARBRIER_CORNER_SERVICES = [
+  { id: "corner-90", category: "shape", label: "Découpe d'angle 90°", codes: { stone: "90G/90D", ultra: "90G/90D" }, prices: { stone: 28, ultra: 28 }, unit: "un", active: true },
+  { id: "corner-bevel", category: "shape", label: "Pan coupé", codes: { stone: "PCG/PCD", ultra: "PCG/PCD" }, prices: { stone: 34.19, ultra: 34.19 }, unit: "un", active: true },
+  { id: "corner-round-end", category: "shape", label: "Extrémité arrondie (jusqu'à 785 mm)", codes: { stone: "ARR", ultra: "ARR" }, prices: { stone: 67.77, ultra: 67.77 }, unit: "un", active: true },
+];
+
 export function buildSeed() {
   const now = new Date().toISOString();
-  const catalogSeed = readSeed("catalog.json");
+  const catalogSeed = readSeed("catalog.json");            // prestations (tarif d'essai Bazin)
+  const emarbrier = readSeed("catalog-emarbrier.json");    // matières réelles (import Supabase)
   const appliancesSeed = readSeed("appliances.json");
 
   const factory = {
@@ -53,8 +63,9 @@ export function buildSeed() {
     phone: "05 53 10 20 30",
     deliveryAddress: "18 rue de la République, 24100 Bergerac",
     distanceKm: 42,
-    defaultMarginPct: 35,
-    defaultVatPct: 20,
+    // coef_matiere e-marbrier = 2,10 → marge de 110 % appliquée ligne à ligne.
+    defaultMarginPct: Math.round(((emarbrier.resellerDefaults?.coefMatiere || 2.1) - 1) * 100),
+    defaultVatPct: emarbrier.resellerDefaults?.tvaPct || 20,
     active: true,
     createdAt: now,
     legalName: "Cuisine & Harmonie",
@@ -106,10 +117,11 @@ export function buildSeed() {
     counters: { project: 1, order: 1 },
     catalogs: {
       [factory.id]: {
-        source: catalogSeed.source,
+        source: emarbrier.source,
         updatedAt: now,
-        materials: catalogSeed.materials,
-        services: catalogSeed.services,
+        materials: emarbrier.materials,
+        finitions: emarbrier.finitions,
+        services: [...catalogSeed.services, ...EMARBRIER_CORNER_SERVICES],
       },
     },
     appliances: appliancesSeed.appliances,

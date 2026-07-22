@@ -158,7 +158,9 @@ export function factoryOrderDocument(order, project, reseller, factory, catalog)
 
 export function technicalSheetDocument(order, project, reseller, factory, catalog) {
   const material = (catalog?.materials || []).find((m) => m.id === project.materialId);
-  const materialLabel = material ? `${material.brand} ${material.color} · ${project.thicknessMm} mm · ${project.finish}` : "";
+  const variant = (material?.variants || []).find((v) => v.finish === project.finish && v.thicknessMm === Number(project.thicknessMm))
+    || (material?.variants || [])[0];
+  const materialLabel = material ? `${material.brand} ${material.color} · ${project.thicknessMm} mm · ${variant?.finishLabel || project.finish}` : "";
   const manufactured = (project.pieces || []).filter((p) => ["worktop", "splashback", "panel"].includes(p.kind));
   const steps = PRODUCTION_STEPS.map((step) => {
     const done = order.productionSteps?.[step.id];
@@ -167,7 +169,7 @@ export function technicalSheetDocument(order, project, reseller, factory, catalo
   const body = `
     ${header({ ...factory }, "Fiche technique de fabrication", [`N° ${order.number}`, `${project.reference}`, `Semaine : ${order.deliveryWeek || "—"}`])}
     <div class="grid2">
-      <div class="box"><strong>Matériau</strong><br>${esc(materialLabel)}<br><span class="muted">Plaque maxi : ${num(material?.maxLengthMm, 0)} × ${num(material?.maxWidthMm, 0)} mm</span></div>
+      <div class="box"><strong>Matériau</strong><br>${esc(materialLabel)}<br><span class="muted">Plaque maxi : ${num(variant?.maxLengthMm || material?.maxLengthMm, 0)} × ${num(variant?.maxWidthMm || material?.maxWidthMm, 0)} mm</span></div>
       <div class="box"><strong>Chantier</strong><br>${esc(project.customer?.name || "")} · ${esc(reseller.company)}<br>${esc(project.customer?.address || "")}</div>
     </div>
     <h2>Pièces à fabriquer (${manufactured.length})</h2>

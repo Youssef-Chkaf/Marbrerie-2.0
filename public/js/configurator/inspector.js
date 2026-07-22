@@ -6,6 +6,7 @@ import { esc, number } from "../ui.js";
 import { register } from "../actions.js";
 import { saveProject } from "./index.js";
 import { openDetailEditor } from "./details.js";
+import { plateDims } from "/shared/plan.js";
 
 const activeMaterials = () => state.data.catalog.materials.filter((m) => m.active);
 
@@ -16,16 +17,23 @@ export function renderInspector(project, piece) {
   const cfg = state.configurator;
   const kindLabels = { worktop: "Plan de travail", splashback: "Crédence", panel: "Panneau", wall: "Mur", cabinet: "Meuble" };
 
+  const pieceFinish = piece.finish || project.finish;
+  const finishes = [...new Map((material?.variants || []).map((v) => [v.finish, v.finishLabel || v.finish])).entries()];
+  const thicknesses = (material?.variants || []).filter((v) => v.finish === pieceFinish).map((v) => v.thicknessMm).sort((a, b) => a - b);
+  const dims = plateDims(material, pieceFinish, piece.thicknessMm || project.thicknessMm);
   const materialSection = isWall ? "" : `
     <div class="inspector-section"><h4>Matière de cet élément</h4>
       ${piece.materialId ? `<button class="btn btn-small btn-ghost" data-action="piece-use-main">Utiliser la matière principale</button>` : `<p class="help">Matière principale du projet.</p>`}
       <label>Coloris<select data-piece-field="materialId">
         <option value="">— matière principale —</option>
         ${activeMaterials().map((m) => `<option value="${m.id}" ${piece.materialId === m.id ? "selected" : ""}>${esc(m.brand)} · ${esc(m.color)}</option>`).join("")}</select></label>
+      <label>Finition<select data-piece-field="finish">
+        <option value="">— comme le projet —</option>
+        ${finishes.map(([code, label]) => `<option value="${esc(code)}" ${piece.finish === code ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
       <label>Épaisseur<select data-piece-field="thicknessMm">
         <option value="">— comme le projet (${esc(project.thicknessMm)} mm) —</option>
-        ${Object.keys(material?.prices || {}).map(Number).sort((a, b) => a - b).map((t) => `<option value="${t}" ${Number(piece.thicknessMm) === t ? "selected" : ""}>${t} mm</option>`).join("")}</select></label>
-      <p class="help">Plaque maxi : ${material ? `${number(material.maxLengthMm)} × ${number(material.maxWidthMm)} mm` : "—"}</p>
+        ${thicknesses.map((t) => `<option value="${t}" ${Number(piece.thicknessMm) === t ? "selected" : ""}>${t} mm</option>`).join("")}</select></label>
+      <p class="help">Plaque maxi : ${dims ? `${number(dims.maxLengthMm)} × ${number(dims.maxWidthMm)} mm` : "—"}</p>
     </div>`;
 
   const wallSection = ["splashback", "panel"].includes(piece.kind) ? `
@@ -104,7 +112,7 @@ export function handlePieceField(input) {
   const numeric = ["lengthMm", "widthMm", "wallOffsetMm", "heightFromFloorMm", "thicknessMm"];
   let value = input.value;
   if (numeric.includes(field)) value = value === "" ? null : Math.max(0, Math.round(Number(value)));
-  if (field === "materialId" || field === "wallId") value = value || null;
+  if (["materialId", "wallId", "finish"].includes(field)) value = value || null;
   if (value === null && field !== "materialId" && field !== "wallId" && field !== "thicknessMm") return true;
   piece[field] = value;
   if (field === "lengthMm") {

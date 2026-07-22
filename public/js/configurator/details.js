@@ -106,8 +106,9 @@ function cornerEditor(piece) {
         <strong>${label}</strong>
         <select data-corner="${key}">
           <option value="square" ${!corner.type || corner.type === "square" ? "selected" : ""}>Angle droit</option>
-          <option value="round" ${corner.type === "round" ? "selected" : ""}>Arrondi</option>
+          <option value="round" ${corner.type === "round" ? "selected" : ""}>Extrémité arrondie</option>
           <option value="cut" ${corner.type === "cut" ? "selected" : ""}>Pan coupé</option>
+          <option value="notch90" ${corner.type === "notch90" ? "selected" : ""}>Découpe 90°</option>
         </select>
         <input type="number" data-corner-value="${key}" min="0" value="${esc(corner.type === "cut" ? corner.cutMm || 40 : corner.radiusMm || 40)}" ${corner.type && corner.type !== "square" ? "" : "disabled"} title="Rayon ou pan en mm">
       </div>`;
@@ -214,9 +215,8 @@ export function handleDetailField(input) {
     piece.corners = piece.corners || {};
     const key = input.dataset.corner;
     if (input.value === "square") delete piece.corners[key];
-    else piece.corners[key] = input.value === "round"
-      ? { type: "round", radiusMm: Number(piece.corners[key]?.radiusMm || 40) }
-      : { type: "cut", cutMm: Number(piece.corners[key]?.cutMm || 40) };
+    else if (input.value === "round") piece.corners[key] = { type: "round", radiusMm: Number(piece.corners[key]?.radiusMm || 40) };
+    else piece.corners[key] = { type: input.value, cutMm: Number(piece.corners[key]?.cutMm || 40) };
     saveProject(); rerender(); return true;
   }
   if (input.dataset.cornerValue !== undefined) {
@@ -251,10 +251,11 @@ export function handleDetailClick(target) {
     const piece = getPiece();
     const key = cornerEl.dataset.detailCorner;
     piece.corners = piece.corners || {};
-    // Clic sur un repère d'angle : bascule droit → arrondi → pan coupé → droit.
+    // Clic sur un repère d'angle : droit → arrondi → pan coupé → découpe 90° → droit.
     const current = piece.corners[key]?.type || "square";
     if (current === "square") piece.corners[key] = { type: "round", radiusMm: 40 };
     else if (current === "round") piece.corners[key] = { type: "cut", cutMm: 40 };
+    else if (current === "cut") piece.corners[key] = { type: "notch90", cutMm: 40 };
     else delete piece.corners[key];
     saveProject(); rerender(); return true;
   }

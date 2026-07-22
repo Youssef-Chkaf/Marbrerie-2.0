@@ -61,6 +61,28 @@ Comptes de démonstration :
 L'usine ne voit jamais la marge ni les prix de vente du revendeur ; le revendeur
 ne voit le DXF machine qu'après validation usine.
 
+## Catalogue réel & règles de chiffrage e-marbrier
+
+Le catalogue vient de l'export Supabase du projet e-marbrier :
+**281 produits** (284 sources, doublons de casse fusionnés vers le Title Case
+le moins cher), **872 variantes** finition × épaisseur, **25 finitions**.
+Réimport : placer les CSV dans `server/data-seed/source/` puis
+`node scripts/import-emarbrier.mjs` et `npm run seed:reset`.
+
+Règles de calcul validées par les tests (`npm test`, 18 cas calculés à la main) :
+
+- **surface jamais arrondie** : `L × l / 1 000 000` en pleine précision ;
+- **double arrondi** : P.U. vente = `round(achat × coef, 2)` **avant** la
+  multiplication par la quantité, puis montant arrondi.
+  `120,06 × 2,10 = 252,126 → 252,13 ; × 1,3 = 327,77` (pas 327,76) ;
+- **coef matière 2,10** = marge revendeur de 110 % appliquée ligne à ligne ;
+- **snapshot** : les prix sont figés à la création du devis (`priceSnapshot`).
+  Un changement de tarif catalogue ne touche que les nouveaux devis ; tous les
+  documents (devis, BC, PDF) lisent le snapshot, jamais le catalogue courant ;
+- **façonnage serveur** : grille e-marbrier sur les angles — découpe 90° 28,00 €,
+  pan coupé 34,19 €, extrémité arrondie 67,77 € (prix d'achat, forfaits) ;
+  chants au ml, découpes au forfait. ⚠️ Grille à faire valider par l'usine.
+
 ## Architecture
 
 ```

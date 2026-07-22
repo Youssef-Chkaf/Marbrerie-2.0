@@ -77,7 +77,10 @@ export class Api {
   recomputeQuote(project) {
     const factory = this.db.factories.find((f) => f.id === project.factoryId);
     const groupIds = project.groupedOrderIds || [];
-    let options = {};
+    // Snapshot : les prix sont figés au premier calcul et réutilisés à vie.
+    // Changer un tarif catalogue n'affecte que les nouveaux devis.
+    if (!project.priceSnapshot) project.priceSnapshot = {};
+    let options = { snapshot: project.priceSnapshot };
     if (groupIds.length) {
       // Livraison groupée : un seul forfait (la distance la plus grande) partagé.
       const projects = [project, ...groupIds
@@ -87,6 +90,7 @@ export class Api {
         .filter(Boolean)];
       const maxDistance = Math.max(...projects.map((p) => Number(p.deliveryDistanceKm || 0)));
       options = {
+        snapshot: project.priceSnapshot,
         groupSize: projects.length,
         groupDeliveryTotal: deliveryForDistance(factory?.settings, maxDistance),
       };
@@ -258,6 +262,7 @@ export class Api {
         customerOrderDate: new Date().toISOString().slice(0, 10),
         notes: body.notes || "",
         pieces: Array.isArray(body.pieces) ? body.pieces : [],
+        priceSnapshot: {},
         importSource: body.importSource || null,
         status: "draft",
         archived: false,
@@ -463,11 +468,18 @@ export class Api {
     if (route === "PATCH /api/catalog") {
       if (role !== "factory") return fail(403, "Seule l'usine modifie les tarifs.");
       const catalog = this.catalogOf(user.factoryId);
-      const { type, id, prices, active } = body;
+      const { type, id, prices, active, variantKey, price } = body;
       const list = type === "material" ? catalog.materials : catalog.services;
       const item = list.find((entry) => entry.id === id);
       if (!item) return fail(404, "Élément introuvable.");
-      if (prices && typeof prices === "object") {
+      // Nouveau modèle matière : prix par variante « FINITION|épaisseur ».
+      if (type === "material" && variantKey !== undefined) {
+        const [finish, thickness] = String(variantKey).split("|");
+        const variant = (item.variants || []).find((v) => v.finish === finish && v.thicknessMm === Number(thickness));
+        if (!variant) return fail(404, "Variante introuvable.");
+        variant.priceM2 = Number(price || 0);
+      }
+      if (prices && typeof prices === "object" && item.prices) {
         for (const [key, value] of Object.entries(prices)) {
           if (value === "" || value === null) delete item.prices[key];
           else item.prices[key] = Number(value);
