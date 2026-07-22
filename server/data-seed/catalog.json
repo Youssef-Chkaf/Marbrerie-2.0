@@ -1,0 +1,936 @@
+{
+ "source": "Tarif Bazin 2024 - tarifs d’essai modifiables par l’usine",
+ "materials": [
+  {
+   "id": "granit-noir-zimbabwe",
+   "brand": "Granit",
+   "collection": "Groupe III",
+   "color": "Noir Zimbabwe",
+   "group": "III",
+   "finish": [
+    "Poli",
+    "Satiné",
+    "Adouci"
+   ],
+   "prices": {
+    "20": 280,
+    "30": 306
+   },
+   "maxLengthMm": 3100,
+   "maxWidthMm": 1900,
+   "tone": "#242522",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "granit-noir-impala",
+   "brand": "Granit",
+   "collection": "Groupe II",
+   "color": "Noir Impala",
+   "group": "II",
+   "finish": [
+    "Poli",
+    "Satiné",
+    "Adouci"
+   ],
+   "prices": {
+    "20": 183,
+    "30": 221
+   },
+   "maxLengthMm": 3100,
+   "maxWidthMm": 1900,
+   "tone": "#4b4b48",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "granit-negro-galaxy",
+   "brand": "Granit",
+   "collection": "Groupe V",
+   "color": "Negro Galaxy",
+   "group": "V",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "20": 372,
+    "30": 428
+   },
+   "maxLengthMm": 3100,
+   "maxWidthMm": 1900,
+   "tone": "#171817",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "granit-pedras-salgadas",
+   "brand": "Granit",
+   "collection": "Groupe I",
+   "color": "Pedras Salgadas",
+   "group": "I",
+   "finish": [
+    "Poli",
+    "Vieilli"
+   ],
+   "prices": {
+    "20": 135,
+    "30": 146
+   },
+   "maxLengthMm": 3100,
+   "maxWidthMm": 1900,
+   "tone": "#b5a997",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "marbre-estremoz",
+   "brand": "Marbre",
+   "collection": "Classiques",
+   "color": "Estremoz Médio",
+   "group": "M",
+   "finish": [
+    "Poli",
+    "Adouci"
+   ],
+   "prices": {
+    "20": 130,
+    "30": 141
+   },
+   "maxLengthMm": 2900,
+   "maxWidthMm": 1800,
+   "tone": "#e7dfd0",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-persian-white",
+   "brand": "Silestone",
+   "collection": "Suma",
+   "color": "Persian White",
+   "group": "VI",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 528,
+    "20": 678,
+    "30": 940
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#e8e1d7",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-bronze-rivers",
+   "brand": "Silestone",
+   "collection": "Suma",
+   "color": "Bronze Rivers",
+   "group": "VI",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 528,
+    "20": 678,
+    "30": 940
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#9e8874",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-motion-grey",
+   "brand": "Silestone",
+   "collection": "Suma",
+   "color": "Motion Grey",
+   "group": "V",
+   "finish": [
+    "Poli",
+    "Suede"
+   ],
+   "prices": {
+    "12": 435,
+    "20": 559,
+    "30": 775
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#aaa8a2",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-linen-cream",
+   "brand": "Silestone",
+   "collection": "Suma",
+   "color": "Linen Cream",
+   "group": "V",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 435,
+    "20": 559,
+    "30": 775
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#d7c8ae",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-versailles-ivory",
+   "brand": "Silestone",
+   "collection": "Le Chic",
+   "color": "Versailles Ivory",
+   "group": "VII",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 601,
+    "20": 770,
+    "30": 1068
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#ddd0b5",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-victorian-silver",
+   "brand": "Silestone",
+   "collection": "Le Chic",
+   "color": "Victorian Silver",
+   "group": "VII",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 601,
+    "20": 770,
+    "30": 1068
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#bbb9b2",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-romantic-ash",
+   "brand": "Silestone",
+   "collection": "Le Chic",
+   "color": "Romantic Ash",
+   "group": "VII",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 601,
+    "20": 770,
+    "30": 1068
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#3d4247",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-parisien-bleu",
+   "brand": "Silestone",
+   "collection": "Le Chic",
+   "color": "Parisien Bleu",
+   "group": "VII",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 601,
+    "20": 770,
+    "30": 1068
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#344c5d",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-eternal-calacatta",
+   "brand": "Silestone",
+   "collection": "Eternal",
+   "color": "Eternal Calacatta Gold",
+   "group": "VI",
+   "finish": [
+    "Poli",
+    "Suede"
+   ],
+   "prices": {
+    "12": 528,
+    "20": 678,
+    "30": 940
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#ece7dc",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-blanco-zeus",
+   "brand": "Silestone",
+   "collection": "Mythology",
+   "color": "Blanco Zeus",
+   "group": "IV",
+   "finish": [
+    "Poli",
+    "Suede"
+   ],
+   "prices": {
+    "12": 396,
+    "20": 508,
+    "30": 706
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#f2f0e9",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "silestone-lagoon",
+   "brand": "Silestone",
+   "collection": "Nebula",
+   "color": "Lagoon",
+   "group": "III",
+   "finish": [
+    "Poli",
+    "Suede"
+   ],
+   "prices": {
+    "12": 315,
+    "20": 367,
+    "30": 485
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1590,
+   "tone": "#dedfdc",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "dekton-nara",
+   "brand": "Dekton",
+   "collection": "Pietra Edition",
+   "color": "Nara",
+   "group": "III",
+   "finish": [
+    "Mat"
+   ],
+   "prices": {
+    "8": 575,
+    "12": 575,
+    "20": 662
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#d9d1c4",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-ava",
+   "brand": "Dekton",
+   "collection": "Pietra Edition",
+   "color": "Ava",
+   "group": "III",
+   "finish": [
+    "Mat"
+   ],
+   "prices": {
+    "8": 575,
+    "12": 575,
+    "20": 662
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#c9c0b3",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-thala",
+   "brand": "Dekton",
+   "collection": "Nomak",
+   "color": "Thala",
+   "group": "III",
+   "finish": [
+    "Mat"
+   ],
+   "prices": {
+    "8": 575,
+    "12": 575,
+    "20": 662
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#777974",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-sandik",
+   "brand": "Dekton",
+   "collection": "Nomak",
+   "color": "Sandik",
+   "group": "II",
+   "finish": [
+    "Mat"
+   ],
+   "prices": {
+    "8": 494,
+    "12": 494,
+    "20": 573
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#cfc0aa",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-keena",
+   "brand": "Dekton",
+   "collection": "Nomak",
+   "color": "Keena",
+   "group": "II",
+   "finish": [
+    "Mat"
+   ],
+   "prices": {
+    "8": 494,
+    "12": 494,
+    "20": 573
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#b7ad9d",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-nebu",
+   "brand": "Dekton",
+   "collection": "Pietra Edition",
+   "color": "Nebu",
+   "group": "III",
+   "finish": [
+    "Mat",
+    "Velvet"
+   ],
+   "prices": {
+    "8": 575,
+    "12": 575,
+    "20": 662
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#d5d0c4",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-marmorio",
+   "brand": "Dekton",
+   "collection": "Pietra Kode",
+   "color": "Marmorio",
+   "group": "II",
+   "finish": [
+    "Mat",
+    "Texturé"
+   ],
+   "prices": {
+    "8": 494,
+    "12": 494,
+    "20": 573
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#d6c8b8",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-awake",
+   "brand": "Dekton",
+   "collection": "Onirika",
+   "color": "Awake",
+   "group": "IV",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "8": 690,
+    "12": 690,
+    "20": 796
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#e2d6c8",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-rem",
+   "brand": "Dekton",
+   "collection": "Natural",
+   "color": "Rem",
+   "group": "III",
+   "finish": [
+    "Texturé",
+    "Velvet"
+   ],
+   "prices": {
+    "8": 575,
+    "12": 575,
+    "20": 662
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#e5dfd4",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "dekton-kreta",
+   "brand": "Dekton",
+   "collection": "Industrial",
+   "color": "Kreta",
+   "group": "I",
+   "finish": [
+    "Mat",
+    "Ukiyo"
+   ],
+   "prices": {
+    "8": 424,
+    "12": 424,
+    "20": 487
+   },
+   "maxLengthMm": 3270,
+   "maxWidthMm": 1470,
+   "tone": "#77736e",
+   "family": "ultra",
+   "active": true
+  },
+  {
+   "id": "topzstone-absolut-white",
+   "brand": "Topzstone",
+   "collection": "Groupe 4",
+   "color": "Absolut White",
+   "group": "4",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 253,
+    "20": 307,
+    "30": 393
+   },
+   "maxLengthMm": 3060,
+   "maxWidthMm": 1400,
+   "tone": "#f1f1ec",
+   "family": "stone",
+   "active": true
+  },
+  {
+   "id": "topzstone-belgian-blue",
+   "brand": "Topzstone",
+   "collection": "Groupe 2",
+   "color": "Belgian Blue",
+   "group": "2",
+   "finish": [
+    "Poli"
+   ],
+   "prices": {
+    "12": 229,
+    "20": 268,
+    "30": 348
+   },
+   "maxLengthMm": 3060,
+   "maxWidthMm": 1400,
+   "tone": "#4d5456",
+   "family": "stone",
+   "active": true
+  }
+ ],
+ "services": [
+  {
+   "id": "edge-straight",
+   "category": "edge",
+   "label": "Chant droit chanfreiné",
+   "codes": {
+    "stone": "C1",
+    "ultra": "C1D"
+   },
+   "prices": {
+    "stone": 8,
+    "ultra": 13
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "edge-rounded",
+   "category": "edge",
+   "label": "Chant droit bord arrondi",
+   "codes": {
+    "stone": "C29",
+    "ultra": "C29D"
+   },
+   "prices": {
+    "stone": 13,
+    "ultra": 21
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "edge-half-round",
+   "category": "edge",
+   "label": "Chant demi-rond",
+   "codes": {
+    "stone": "C5",
+    "ultra": "C29D"
+   },
+   "prices": {
+    "stone": 19,
+    "ultra": 21
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "edge-round",
+   "category": "edge",
+   "label": "Chant arrondi",
+   "codes": {
+    "stone": "C9",
+    "ultra": "C29D"
+   },
+   "prices": {
+    "stone": 24,
+    "ultra": 21
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "edge-airplane",
+   "category": "edge",
+   "label": "Chant aile d'avion",
+   "codes": {
+    "stone": "C13",
+    "ultra": "C29D"
+   },
+   "prices": {
+    "stone": 24,
+    "ultra": 21
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "edge-waterfall-5",
+   "category": "edge",
+   "label": "Retombée de 4 à 6 cm",
+   "codes": {
+    "stone": "FC1",
+    "ultra": "FC1D"
+   },
+   "prices": {
+    "stone": 109,
+    "ultra": 107
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "edge-waterfall-10",
+   "category": "edge",
+   "label": "Retombée de 7 à 10 cm",
+   "codes": {
+    "stone": "FC2",
+    "ultra": "FC2D"
+   },
+   "prices": {
+    "stone": 135,
+    "ultra": 140
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "cut-rough",
+   "category": "cutout",
+   "label": "Découpe brute (évier/cuisson)",
+   "codes": {
+    "stone": "FB2",
+    "ultra": "FB2D"
+   },
+   "prices": {
+    "stone": 42,
+    "ultra": 83
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-flush",
+   "category": "cutout",
+   "label": "Découpe à fleur",
+   "codes": {
+    "stone": "FS1",
+    "ultra": "FP2D"
+   },
+   "prices": {
+    "stone": 76,
+    "ultra": 135
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-polished",
+   "category": "cutout",
+   "label": "Découpe polie sous-plan",
+   "codes": {
+    "stone": "FP2",
+    "ultra": "FP2D"
+   },
+   "prices": {
+    "stone": 76,
+    "ultra": 135
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-tap",
+   "category": "cutout",
+   "label": "Perçage robinet / prise",
+   "codes": {
+    "stone": "FT",
+    "ultra": "FTD"
+   },
+   "prices": {
+    "stone": 17,
+    "ultra": 21
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-outside",
+   "category": "shape",
+   "label": "Coupe extérieure",
+   "codes": {
+    "stone": "CX1",
+    "ultra": "CX1D"
+   },
+   "prices": {
+    "stone": 21,
+    "ultra": 30
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-inside",
+   "category": "shape",
+   "label": "Coupe intérieure",
+   "codes": {
+    "stone": "CX2",
+    "ultra": "CX2D"
+   },
+   "prices": {
+    "stone": 21,
+    "ultra": 30
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-rounded-end",
+   "category": "shape",
+   "label": "Découpe d’angle arrondi",
+   "codes": {
+    "stone": "CA1",
+    "ultra": "CA1D"
+   },
+   "prices": {
+    "stone": 18,
+    "ultra": 18
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "drainer-5",
+   "category": "drainer",
+   "label": "Rainurage égouttoir (5 rainures)",
+   "codes": {
+    "stone": "RE",
+    "ultra": "RED"
+   },
+   "prices": {
+    "stone": 64,
+    "ultra": 126
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "drainer-extra",
+   "category": "drainer",
+   "label": "Rainure supplémentaire",
+   "codes": {
+    "stone": "RA",
+    "ultra": "RAD"
+   },
+   "prices": {
+    "stone": 18,
+    "ultra": 35
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "sink-glued",
+   "category": "sink",
+   "label": "Évier collé sous plan dans la matière · 50 × 40 cm",
+   "codes": {
+    "stone": "PCOL",
+    "ultra": "PCOLD"
+   },
+   "prices": {
+    "stone": 521,
+    "ultra": 781
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "reinforcement",
+   "category": "other",
+   "label": "Renforcement sous plan",
+   "codes": {
+    "stone": "REF",
+    "ultra": "REF"
+   },
+   "prices": {
+    "stone": 50,
+    "ultra": 49
+   },
+   "unit": "m2",
+   "active": true
+  },
+  {
+   "id": "packaging",
+   "category": "other",
+   "label": "Emballage commande",
+   "codes": {
+    "stone": "EMB",
+    "ultra": "E"
+   },
+   "prices": {
+    "stone": 42,
+    "ultra": 42
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "cut-apron-sink",
+   "category": "cutout",
+   "label": "Découpe évier timbre",
+   "codes": {
+    "stone": "FB",
+    "ultra": "FB"
+   },
+   "prices": {
+    "stone": 151,
+    "ultra": 151
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "drainer-recessed",
+   "category": "drainer",
+   "label": "Égouttoir décaissé fond plat",
+   "codes": {
+    "stone": "E1",
+    "ultra": "E1"
+   },
+   "prices": {
+    "stone": 220,
+    "ultra": 220
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "sink-integrated",
+   "category": "sink",
+   "label": "Évier encastré dans la matière 50 × 40 cm",
+   "codes": {
+    "stone": "PENC",
+    "ultra": "PENC"
+   },
+   "prices": {
+    "stone": 651,
+    "ultra": 651
+   },
+   "unit": "un",
+   "active": true
+  },
+  {
+   "id": "back-finish-narrow",
+   "category": "backFinish",
+   "label": "Finition deuxième face jusqu'à 30 cm",
+   "codes": {
+    "stone": "SF",
+    "ultra": "SFD"
+   },
+   "prices": {
+    "stone": 27,
+    "ultra": 52
+   },
+   "unit": "ml",
+   "active": true
+  },
+  {
+   "id": "back-finish-wide",
+   "category": "backFinish",
+   "label": "Finition deuxième face à partir de 31 cm",
+   "codes": {
+    "stone": "SF1",
+    "ultra": "SFD1"
+   },
+   "prices": {
+    "stone": 64,
+    "ultra": 76
+   },
+   "unit": "m²",
+   "active": true
+  }
+ ]
+}
