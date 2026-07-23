@@ -60,6 +60,14 @@ export function renderFactorySettings() {
           <label>Utilisateur<input name="smtpUser" value="${esc(settings.smtp.user)}"></label>
         </div>
       </div>
+      <div class="card"><div class="card-head"><h3>Mot de passe de connexion</h3></div>
+        <div class="card-body form-grid" id="password-form">
+          <label class="wide">Mot de passe actuel<input type="password" name="currentPassword" autocomplete="current-password"></label>
+          <label class="wide">Nouveau mot de passe<input type="password" name="newPassword" autocomplete="new-password" placeholder="8 caractères minimum"></label>
+          <label class="wide">Confirmer le nouveau mot de passe<input type="password" name="newPasswordConfirm" autocomplete="new-password"></label>
+          <button class="btn btn-soft wide" data-action="change-factory-password">Changer le mot de passe</button>
+        </div>
+      </div>
     </aside>
   </div>`;
 }
@@ -68,6 +76,19 @@ register({
   "add-delivery-tier": () => {
     state.data.factory.settings.deliveryTiers.push({ maxKm: 800, price: 490 });
     window.dispatchEvent(new Event("marbexa:render"));
+  },
+
+  "change-factory-password": async () => {
+    const read = (name) => document.querySelector(`#password-form [name=${name}]`)?.value || "";
+    const current = read("currentPassword");
+    const next = read("newPassword");
+    if (next.length < 8) { toast("Le nouveau mot de passe doit faire 8 caractères minimum.", "error"); return; }
+    if (next !== read("newPasswordConfirm")) { toast("La confirmation ne correspond pas.", "error"); return; }
+    try {
+      await request("/api/settings", { method: "PATCH", body: { currentPassword: current, newPassword: next } });
+      toast("Mot de passe mis à jour.");
+      window.dispatchEvent(new Event("marbexa:render"));
+    } catch (error) { toast(error.message, "error"); }
   },
 
   "save-settings": async () => {

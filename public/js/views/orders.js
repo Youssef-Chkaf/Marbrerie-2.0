@@ -42,20 +42,24 @@ export function ordersTable(orders, { compact = false, selectable = false } = {}
       <td>${esc(order.deliveryWeek || "—")}${order.project?.consolidatedDelivery ? ` <span class="delivery-group-badge" title="Livraison groupée">⧉</span>` : ""}</td>
       <td>${money(orderAmount(order))}</td>
       ${compact ? "" : `<td>${statusBadge(order.status)}</td>
-      <td><button class="btn btn-small" data-action="open-order" data-id="${order.id}">Ouvrir</button></td>`}
+      <td><button class="btn btn-small" data-action="open-order" data-id="${order.id}">Ouvrir</button>
+        ${order.archived ? `<button class="btn btn-small btn-ghost" data-action="restore-order" data-id="${order.id}">Restaurer</button>` : ""}</td>`}
     </tr>`).join("")}</tbody></table></div>`;
 }
 
 export function renderOrdersPage() {
   const isFactory = state.data.user.role === "factory";
-  const orders = filterOrders(state.data.orders.filter((o) => !o.archived));
+  const showArchived = Boolean(state.filters.showArchivedOrders);
+  const archivedCount = state.data.orders.filter((o) => o.archived).length;
+  const orders = filterOrders(state.data.orders.filter((o) => Boolean(o.archived) === showArchived));
   const weeks = [...new Set(state.data.orders.map((o) => o.deliveryWeek).filter(Boolean))].sort();
   return `
-  <div class="page-head"><div><h2>Commandes</h2>
-    <p>Filtrez, contrôlez, regroupez les livraisons et archivez les commandes terminées.</p></div>
+  <div class="page-head"><div><h2>${showArchived ? "Commandes archivées" : "Commandes"}</h2>
+    <p>${showArchived ? "Consultez et restaurez les commandes archivées." : "Filtrez, contrôlez, regroupez les livraisons et archivez les commandes terminées."}</p></div>
     <div class="page-actions">
-      <button class="btn btn-dark" data-action="group-delivery">Regrouper la livraison</button>
-      <button class="btn btn-ghost" data-action="archive-selection">Archiver la sélection</button>
+      ${showArchived ? "" : `<button class="btn btn-dark" data-action="group-delivery">Regrouper la livraison</button>
+      <button class="btn btn-ghost" data-action="archive-selection">Archiver la sélection</button>`}
+      <button class="btn btn-ghost" data-action="toggle-archived-orders">${showArchived ? "← Commandes actives" : `Archives (${archivedCount})`}</button>
       ${isFactory ? "" : `<button class="btn btn-primary" data-action="new-project-choice">+ Nouveau devis</button>`}
     </div></div>
   <section class="card">
@@ -129,6 +133,7 @@ export function openOrderModal(orderId) {
 
   const documents = `
     ${canEditPlan ? `<button class="btn btn-small btn-dark" data-action="edit-order-plan" data-id="${order.id}">${correctionRequested && !isFactory ? "Corriger le plan demandé" : "Modifier le plan"}</button>` : ""}
+    ${project.consolidatedDelivery ? `<button class="btn btn-small btn-ghost" data-action="ungroup-delivery" data-id="${order.id}" title="Retire cette commande et ses commandes liées du forfait de livraison partagé">Dégrouper la livraison</button>` : ""}
     <a class="btn btn-small ${isFactory ? "btn-ghost" : "btn-soft"}" href="/print/${project.id}?type=factory-order" target="_blank">Bon de commande usine</a>
     <a class="btn btn-small btn-ghost" href="/print/${project.id}?type=technical" target="_blank">Fiche technique</a>
     ${dxfAvailable ? `<a class="btn btn-small btn-dark" href="/api/orders/${order.id}/dxf">Télécharger le DXF 2D machine</a>` : ""}
@@ -229,6 +234,31 @@ register({
       await refresh();
       state.selectedOrderIds = [];
       toast(`Livraison regroupée sur ${result.count} commandes : forfait partagé.`);
+      window.dispatchEvent(new Event("marbexa:render"));
+    } catch (error) { toast(error.message, "error"); }
+  },
+
+  "ungroup-delivery": async (el) => {
+    try {
+      const result = await request("/api/orders/ungroup-delivery", { body: { orderId: el.dataset.id } });
+      await refresh();
+      closeModal();
+      toast(`Livraison dégroupée : ${result.count} commande(s) repassent au forfait individuel.`);
+      window.dispatchEvent(new Event("marbexa:render"));
+    } catch (error) { toast(error.message, "error"); }
+  },
+
+  "toggle-archived-orders": () => {
+    state.filters.showArchivedOrders = !state.filters.showArchivedOrders;
+    state.selectedOrderIds = [];
+    window.dispatchEvent(new Event("marbexa:render"));
+  },
+
+  "restore-order": async (el) => {
+    try {
+      await request(`/api/orders/${el.dataset.id}/archive`, { body: { archived: false } });
+      await refresh();
+      toast("Commande restaurée.");
       window.dispatchEvent(new Event("marbexa:render"));
     } catch (error) { toast(error.message, "error"); }
   },

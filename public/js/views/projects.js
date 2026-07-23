@@ -61,15 +61,18 @@ export function handleMaterialCascade(select) {
 }
 
 export function renderProjects() {
-  const projects = state.data.projects.filter((p) => !p.archived)
+  const showArchived = Boolean(state.filters.showArchivedProjects);
+  const archivedCount = state.data.projects.filter((p) => p.archived).length;
+  const projects = state.data.projects.filter((p) => Boolean(p.archived) === showArchived)
     .filter((p) => !state.filters.search || `${p.title} ${p.customer?.name || ""} ${p.reference}`.toLowerCase().includes(state.filters.search.toLowerCase()))
     .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
   return `
-  <div class="page-head"><div><h2>Devis & projets</h2>
-    <p>Les commandes déjà envoyées sont protégées et passent par une modification urgente.</p></div>
+  <div class="page-head"><div><h2>${showArchived ? "Projets archivés" : "Devis & projets"}</h2>
+    <p>${showArchived ? "Consultez et restaurez les devis archivés." : "Les commandes déjà envoyées sont protégées et passent par une modification urgente."}</p></div>
     <div class="page-actions">
-      <button class="btn btn-ghost" data-action="archive-projects">Archiver</button>
-      <button class="btn btn-ghost btn-danger" data-action="delete-projects">Supprimer</button>
+      ${showArchived ? "" : `<button class="btn btn-ghost" data-action="archive-projects">Archiver</button>
+      <button class="btn btn-ghost btn-danger" data-action="delete-projects">Supprimer</button>`}
+      <button class="btn btn-ghost" data-action="toggle-archived-projects">${showArchived ? "← Projets actifs" : `Archives (${archivedCount})`}</button>
       <button class="btn btn-primary" data-action="new-project-choice">+ Nouveau devis</button>
     </div></div>
   <section class="card">
@@ -87,9 +90,12 @@ export function renderProjects() {
         <td>${money(p.quote?.customerHT)}</td><td>${money(p.quote?.customerTTC)}</td>
         <td>${statusBadge(order ? order.status : p.status === "draft" ? "quote" : p.status)}</td>
         <td>${dateFr(p.updatedAt)}</td>
-        <td>${order
+        <td>${showArchived
+          ? `<button class="btn btn-small btn-ghost" data-action="restore-project" data-id="${p.id}">Restaurer</button>`
+          : order
           ? `<button class="btn btn-small btn-soft" data-action="open-order" data-id="${order.id}">Voir la commande</button>`
-          : `<button class="btn btn-small" data-action="open-project" data-id="${p.id}">Ouvrir</button>`}</td>
+          : `<button class="btn btn-small" data-action="open-project" data-id="${p.id}">Ouvrir</button>`}
+          ${state.data.user.role === "reseller" ? `<button class="btn btn-small btn-ghost" data-action="duplicate-project" data-id="${p.id}" title="Créer un nouveau devis identique aux prix catalogue du jour">Dupliquer</button>` : ""}</td>
       </tr>`;
       }).join("") || `<tr><td colspan="9"><div class="empty"><p>Aucun projet pour l'instant.</p></div></td></tr>`}</tbody>
     </table></div>
@@ -259,6 +265,29 @@ register({
     await refresh();
     toast("Projets archivés.");
     window.dispatchEvent(new Event("marbexa:render"));
+  },
+
+  "toggle-archived-projects": () => {
+    state.filters.showArchivedProjects = !state.filters.showArchivedProjects;
+    window.dispatchEvent(new Event("marbexa:render"));
+  },
+
+  "restore-project": async (el) => {
+    try {
+      await request(`/api/projects/${el.dataset.id}`, { method: "PATCH", body: { archived: false } });
+      await refresh();
+      toast("Projet restauré.");
+      window.dispatchEvent(new Event("marbexa:render"));
+    } catch (error) { toast(error.message, "error"); }
+  },
+
+  "duplicate-project": async (el) => {
+    try {
+      const result = await request(`/api/projects/${el.dataset.id}/duplicate`, { body: {} });
+      await refresh();
+      toast(`Devis dupliqué : ${result.project.reference} (prix catalogue du jour).`);
+      openConfigurator(result.project.id);
+    } catch (error) { toast(error.message, "error"); }
   },
 
   "delete-projects": async () => {

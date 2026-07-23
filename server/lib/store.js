@@ -38,8 +38,29 @@ export class Store {
 
   saveNow() {
     clearTimeout(this.saveTimer);
+    this.dailyBackup();
     const tmp = `${this.filePath}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 1));
     fs.renameSync(tmp, this.filePath);
+  }
+
+  // Sauvegarde quotidienne tournante : avant la première écriture du jour,
+  // copie de l'état courant dans data/backups/ (14 jours conservés).
+  dailyBackup() {
+    try {
+      if (!fs.existsSync(this.filePath)) return;
+      const day = new Date().toISOString().slice(0, 10);
+      const dir = path.join(path.dirname(this.filePath), "backups");
+      const target = path.join(dir, `marbexa-${day}.json`);
+      if (fs.existsSync(target)) return;
+      fs.mkdirSync(dir, { recursive: true });
+      fs.copyFileSync(this.filePath, target);
+      const backups = fs.readdirSync(dir).filter((f) => /^marbexa-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+      for (const old of backups.slice(0, Math.max(0, backups.length - 14))) {
+        fs.unlinkSync(path.join(dir, old));
+      }
+    } catch (error) {
+      console.error("Sauvegarde quotidienne impossible :", error.message);
+    }
   }
 }

@@ -43,7 +43,9 @@ Comptes de démonstration :
   « à vérifier » avant fabrication.
 - **Mes commandes** : suivi des statuts, corrections demandées par l'usine
   (modification du plan puis renvoi pour contrôle), commentaires et pièces jointes,
-  **regroupement de livraison** (forfait partagé), archivage.
+  **regroupement / dégroupage de livraison** (forfait partagé), archivage et
+  restauration (vue Archives), **duplication d'un devis** (nouvelle référence,
+  prix catalogue du jour — le figé de l'original n'est pas repris).
 
 ### Accès usine
 - **Tableau de bord** : C.A., commandes à contrôler, en fabrication, panier moyen.
@@ -56,7 +58,11 @@ Comptes de démonstration :
   activation/désactivation — répercutés immédiatement sur les nouveaux chiffrages.
 - **Statistiques** : C.A. mensuel, classement produits, filtrage par période.
 - **Réglages** : délai minimum, majoration finition Suede/spéciale, tranches de
-  livraison kilométriques, alertes, SMTP.
+  livraison kilométriques, alertes, SMTP, **changement du mot de passe usine**.
+
+La connexion est limitée à 8 tentatives par quart d'heure (par IP + e-mail) et
+le serveur conserve une **sauvegarde quotidienne tournante** de la base dans
+`data/backups/` (14 jours).
 
 L'usine ne voit jamais la marge ni les prix de vente du revendeur ; le revendeur
 ne voit le DXF machine qu'après validation usine.
@@ -69,7 +75,8 @@ le moins cher), **872 variantes** finition × épaisseur, **25 finitions**.
 Réimport : placer les CSV dans `server/data-seed/source/` puis
 `node scripts/import-emarbrier.mjs` et `npm run seed:reset`.
 
-Règles de calcul validées par les tests (`npm test`, 18 cas calculés à la main) :
+Règles de calcul validées par les tests (`npm test` : 20 cas de chiffrage
+calculés à la main + 10 tests d'intégration API sur serveur réel) :
 
 - **surface jamais arrondie** : `L × l / 1 000 000` en pleine précision ;
 - **double arrondi** : P.U. vente = `round(achat × coef, 2)` **avant** la
@@ -104,6 +111,28 @@ public/            SPA sans build (modules ES natifs)
   js/configurator/ Configurateur (canvas, inspecteur, découpes, crédence, chiffrage)
 ```
 
+Le DXF machine comprend les calques CONTOUR / DECOUPES / PERCAGES / RAINURES /
+**DEFONCAGE** (poses à fleur et égouttoirs décaissés, avec profondeur) / CHANTS /
+COTES ; la rotation des découpes et les encoches ouvertes (3 côtés + angles E1/E2
+travaillés) sont reproduites fidèlement.
+
 La base d'appareils (`server/data-seed/appliances.json`) contient des cotes
 **indicatives** issues des notices fabricants : toujours vérifier la notice du
 modèle exact avant fabrication.
+
+## Décisions en attente / production
+
+- **Grille de façonnage** (28,00 / 34,19 / 67,77 € + prestations Bazin) : à faire
+  valider par l'usine avant mise en production.
+- **Facturation des angles E1/E2 d'encoche** : alignée sur la grille des angles
+  du plan (90° / pan coupé / arrondi) — à confirmer par l'usine.
+- **Numérotation** : Marbexa émet `DEV-AAAA-NNNN` / `MBX-AAAA-NNNNN` ;
+  l'ancien e-marbrier utilisait `D-AAAA-XXXX` / `C-AAAA-XXXX`. À trancher.
+- **Règle de livraison groupée** : actuellement le forfait de la distance la plus
+  longue est partagé entre les commandes du groupe. À confirmer.
+- **Moteur IA v2** (PNG / JPG / PDF scannés via l'API Claude) : conception prête,
+  mise en œuvre en attente.
+- **Hébergement & base de production** : le stockage JSON (`lib/store.js`) est
+  volontairement isolé pour être remplacé par PostgreSQL/Supabase sans toucher au
+  reste ; prévoir HTTPS (reverse proxy) et variable `MARBEXA_DATA` pour le chemin
+  de la base.

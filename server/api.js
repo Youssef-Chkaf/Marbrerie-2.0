@@ -16,6 +16,24 @@ const makeId = (prefix) => `${prefix}-${randomBytes(9).toString("hex")}`;
 export class Api {
   constructor(store) {
     this.store = store;
+    // Limitation des tentatives de connexion : 8 échecs / 15 min par IP+e-mail.
+    this.loginAttempts = new Map();
+  }
+
+  loginBlocked(key) {
+    const entry = this.loginAttempts.get(key);
+    if (!entry) return false;
+    if (Date.now() - entry.first > 15 * 60 * 1000) {
+      this.loginAttempts.delete(key);
+      return false;
+    }
+    return entry.count >= 8;
+  }
+
+  recordLoginFailure(key) {
+    const entry = this.loginAttempts.get(key);
+    if (entry && Date.now() - entry.first <= 15 * 60 * 1000) entry.count += 1;
+    else this.loginAttempts.set(key, { first: Date.now(), count: 1 });
   }
 
   get db() { return this.store.data; }
@@ -210,10 +228,18 @@ export class Api {
     const route = `${req.method} ${url.pathname}`;
 
     if (route === "POST /api/login") {
-      const user = this.db.users.find((u) => u.email.toLowerCase() === String(body?.email || "").toLowerCase() && u.active);
+      const email = String(body?.email || "").toLowerCase().trim();
+      const ip = String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim();
+      const attemptKey = `${ip}|${email}`;
+      if (this.loginBlocked(attemptKey)) {
+        return fail(429, "Trop de tentatives : réessayez dans 15 minutes.");
+      }
+      const user = this.db.users.find((u) => u.email.toLowerCase() === email && u.active);
       if (!user || !verifyPassword(String(body?.password || ""), user.password)) {
+        this.recordLoginFailure(attemptKey);
         return fail(401, "E-mail ou mot de passe incorrect.");
       }
+      this.loginAttempts.delete(attemptKey);
       const token = this.createSession(user.id);
       return send(200, { token, ...this.bootstrap(user) }, {
         "Set-Cookie": `marbexa_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
@@ -290,7 +316,9 @@ export class Api {
         const order = this.db.orders.find((o) => o.projectId === project.id && !["cancelled"].includes(o.status));
         const editableByFactory = role === "factory";
         const editableByReseller = role === "reseller" && (!order || ["changes_requested"].includes(order.status));
-        if (!editableByFactory && !editableByReseller) {
+        // Archiver / restaurer reste possible même quand la commande est partie.
+        const archiveOnly = Object.keys(body).every((key) => ["archived", "historyEvent"].includes(key));
+        if (!editableByFactory && !editableByReseller && !archiveOnly) {
           return fail(409, "Commande déjà envoyée : demandez une correction pour modifier le plan.");
         }
         const allowed = ["title", "roomType", "customer", "materialId", "thicknessMm", "finish", "marginPct", "vatPct",
@@ -318,6 +346,31 @@ export class Api {
 
       if (route.endsWith("/validate")) {
         return send(200, { issues: validateProject(project, this.catalogOf(project.factoryId)) });
+      }
+
+      if (req.method === "POST" && action === "duplicate") {
+        if (role !== "reseller") return fail(403, "Seul un revendeur duplique un devis.");
+        const copy = JSON.parse(JSON.stringify(project));
+        copy.id = makeId("project");
+        copy.reference = this.nextReference("project");
+        copy.title = `${project.title} (copie)`;
+        copy.status = "draft";
+        copy.archived = false;
+        copy.revision = 1;
+        copy.consolidatedDelivery = false;
+        copy.groupedOrderIds = [];
+        // Nouveau devis : nouveaux prix — le figé de l'original n'est pas repris.
+        copy.priceSnapshot = {};
+        copy.quoteDate = new Date().toISOString().slice(0, 10);
+        copy.validityDate = new Date(Date.now() + (this.resellerOf(user)?.quoteValidityDays || 30) * 86400000).toISOString().slice(0, 10);
+        copy.customerOrderDate = copy.quoteDate;
+        copy.history = [{ at: now(), actor: user.name, event: `Dupliqué depuis ${project.reference}` }];
+        copy.createdAt = now();
+        copy.updatedAt = now();
+        this.recomputeQuote(copy);
+        this.db.projects.push(copy);
+        this.store.save();
+        return send(200, { project: this.serializeProjectFor(role, copy) });
       }
 
       if (route.endsWith("/submit")) {
@@ -376,6 +429,28 @@ export class Api {
       }
       this.store.save();
       return send(200, { ok: true, count: orders.length });
+    }
+
+    if (route === "POST /api/orders/ungroup-delivery") {
+      if (role !== "reseller" && role !== "factory") return fail(403, "Accès refusé.");
+      const order = this.db.orders.find((o) => o.id === body.orderId);
+      if (!order || order.factoryId !== user.factoryId) return fail(404, "Commande introuvable.");
+      if (role === "reseller" && order.resellerId !== user.resellerId) return fail(403, "Accès refusé.");
+      const project = this.db.projects.find((p) => p.id === order.projectId);
+      const groupIds = new Set([order.id, ...(project?.groupedOrderIds || [])]);
+      let count = 0;
+      for (const id of groupIds) {
+        const member = this.db.orders.find((o) => o.id === id);
+        const memberProject = member && this.db.projects.find((p) => p.id === member.projectId);
+        if (!memberProject) continue;
+        memberProject.consolidatedDelivery = false;
+        memberProject.groupedOrderIds = [];
+        this.recomputeQuote(memberProject);
+        member.updatedAt = now();
+        count += 1;
+      }
+      this.store.save();
+      return send(200, { ok: true, count });
     }
 
     const orderMatch = url.pathname.match(/^\/api\/orders\/([^/]+)(?:\/([\w-]+))?$/);
@@ -558,6 +633,13 @@ export class Api {
       if (body.settings) factory.settings = { ...factory.settings, ...body.settings };
       for (const key of ["name", "city", "legalName", "siret", "managerName", "email", "phone", "address"]) {
         if (key in body) factory[key] = body[key];
+      }
+      if (body.newPassword) {
+        if (String(body.newPassword).length < 8) return fail(422, "Mot de passe : 8 caractères minimum.");
+        if (!verifyPassword(String(body.currentPassword || ""), user.password)) {
+          return fail(403, "Mot de passe actuel incorrect.");
+        }
+        user.password = hashPassword(String(body.newPassword));
       }
       this.store.save();
       return send(200, { factory });
