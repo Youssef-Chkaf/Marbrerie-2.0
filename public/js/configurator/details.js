@@ -8,7 +8,7 @@ import { request } from "../api.js";
 import { esc, number, money, toast } from "../ui.js";
 import { register } from "../actions.js";
 import { makeId } from "/shared/plan.js";
-import { slabPath, cutoutBounds, clampEdgeNotch } from "/shared/slab.js";
+import { slabPath, cutoutBounds, clampEdgeNotch, edgeSegmentMm } from "/shared/slab.js";
 import { saveProject } from "./index.js";
 
 const CUT_NAMES = {
@@ -148,18 +148,8 @@ function renderSvgCut(piece, cut, ox, oy) {
 }
 
 function edgeSegment(piece, edge, ox, oy) {
-  const L = piece.lengthMm;
-  const W = piece.widthMm;
-  const horizontal = ["top", "bottom"].includes(edge.side);
-  const max = horizontal ? L : W;
-  const length = Math.min(Number(edge.lengthMm || max), max);
-  const fromEnd = edge.startFrom === "right" || edge.startFrom === "bottom";
-  const start = fromEnd ? max - length : 0;
-  const end = fromEnd ? max : length;
-  if (edge.side === "top") return [ox + start, oy, ox + end, oy];
-  if (edge.side === "bottom") return [ox + start, oy + W, ox + end, oy + W];
-  if (edge.side === "left") return [ox, oy + start, ox, oy + end];
-  return [ox + L, oy + start, ox + L, oy + end];
+  const [x1, y1, x2, y2] = edgeSegmentMm(piece, edge);
+  return [ox + x1, oy + y1, ox + x2, oy + y2];
 }
 
 function renderSvgEdges(piece, ox, oy) {
@@ -750,22 +740,33 @@ export function bindDetailCanvas(root) {
     }
     svg.setPointerCapture(event.pointerId);
     const point = toMm(event);
-    drag = { cut, piece, offsetX: point.x - 220 - Number(cut.xMm), offsetY: point.y - 140 - Number(cut.yMm), moved: false };
+    // On garde l'id (pas l'objet) : une sauvegarde différée peut remplacer
+    // le projet en mémoire pendant le glissement.
+    drag = { cutId: cut.id, offsetX: point.x - 220 - Number(cut.xMm), offsetY: point.y - 140 - Number(cut.yMm), moved: false };
   });
+  const dragTarget = () => {
+    const piece = getPiece();
+    const cut = piece?.cutouts.find((c) => c.id === drag?.cutId);
+    return cut ? { piece, cut } : null;
+  };
   svg.addEventListener("pointermove", (event) => {
     if (!drag) return;
+    const target = dragTarget();
+    if (!target) return;
+    const { piece, cut } = target;
     const point = toMm(event);
-    const b = cutoutBounds(drag.cut);
-    drag.cut.xMm = Math.round(Math.min(Math.max(0, point.x - 220 - drag.offsetX), drag.piece.lengthMm - b.width));
-    drag.cut.yMm = Math.round(Math.min(Math.max(0, point.y - 140 - drag.offsetY), drag.piece.widthMm - b.height));
-    if (drag.cut.shape === "edge-notch") clampEdgeNotch(drag.piece, drag.cut);
-    if (drag.cut.kind === "tap") drag.cut.alignToSink = false;
+    const b = cutoutBounds(cut);
+    cut.xMm = Math.round(Math.min(Math.max(0, point.x - 220 - drag.offsetX), piece.lengthMm - b.width));
+    cut.yMm = Math.round(Math.min(Math.max(0, point.y - 140 - drag.offsetY), piece.widthMm - b.height));
+    if (cut.shape === "edge-notch") clampEdgeNotch(piece, cut);
+    if (cut.kind === "tap") cut.alignToSink = false;
     drag.moved = true;
     rerender();
   });
   const endDrag = () => {
-    if (drag?.moved) {
-      refreshDerived(drag.piece, drag.cut);
+    const target = drag?.moved ? dragTarget() : null;
+    if (target) {
+      refreshDerived(target.piece, target.cut);
       saveProject();
       rerender();
     }

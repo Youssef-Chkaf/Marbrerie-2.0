@@ -194,6 +194,46 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) 
       factoryUnitPrice: snappedService(service),
       marginPct, vatPct, piece,
     }));
+    // Encoche ouverte : les nouveaux angles E1 / E2 travaillés se facturent
+    // comme les angles du plan (grille façonnage e-marbrier).
+    if (cut.shape === "edge-notch") {
+      for (const [key, treatment] of Object.entries(cut.edgeCorners || {})) {
+        if (!treatment || !treatment.type || treatment.type === "square") continue;
+        const cornerService = findService(catalog, CORNER_SERVICES[treatment.type])
+          || findService(catalog, treatment.type === "round" ? "cut-rounded-end" : "cut-outside");
+        if (!cornerService) continue;
+        const detail = treatment.type === "round"
+          ? `, rayon ${Number(treatment.radiusMm || 0)} mm`
+          : ` ${Number(treatment.cutXmm || 0)} × ${Number(treatment.cutYmm || 0)} mm`;
+        lines.push(makeLine({
+          category: "Façonnage",
+          code: serviceCode(cornerService, family),
+          description: `${cornerService.label} - Angle ${key === "start" ? "E1" : "E2"} (${service.label})${detail}`,
+          quantity: 1,
+          unit: "un",
+          factoryUnitPrice: snappedService(cornerService),
+          marginPct, vatPct, piece,
+        }));
+      }
+      // Évier timbre d'office : chant fini suivant le profil de l'encoche
+      // (largeur + 2 profondeurs), au tarif du chant posé sur ce côté.
+      if (cut.finishedEdge) {
+        const sideEdge = (piece.edges || []).find((e) => e.side === (cut.edgeSide || "bottom"));
+        const edgeService = findService(catalog, sideEdge?.serviceId) || findService(catalog, "edge-flat");
+        const perimeter = (Number(cut.widthMm || 0) + 2 * Number(cut.heightMm || 0)) / 1000;
+        if (edgeService && perimeter > 0) {
+          lines.push(makeLine({
+            category: "Chant",
+            code: serviceCode(edgeService, family),
+            description: `${edgeService.label} - Chant fini sur découpe (${service.label})`,
+            quantity: perimeter,
+            unit: "ml",
+            factoryUnitPrice: snappedService(edgeService),
+            marginPct, vatPct, piece,
+          }));
+        }
+      }
+    }
     // Rainures supplémentaires d'un égouttoir au-delà des 5 incluses.
     if (cut.kind === "drainer" && Number(cut.grooves || 5) > 5) {
       const extra = findService(catalog, "drainer-extra");

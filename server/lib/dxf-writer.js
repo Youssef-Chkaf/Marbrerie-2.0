@@ -1,12 +1,13 @@
 // Génération du DXF 2D machine (format ASCII R12, lisible par tous les logiciels
 // de FAO / CNC du marché). Calques : CONTOUR, DECOUPES, PERCAGES, RAINURES,
-// CHANTS, COTES.
+// DEFONCAGE (poses à fleur et décaissés, usinage en profondeur), CHANTS, COTES.
 
 const LAYERS = [
   { name: "CONTOUR", color: 7 },
   { name: "DECOUPES", color: 1 },
   { name: "PERCAGES", color: 3 },
   { name: "RAINURES", color: 5 },
+  { name: "DEFONCAGE", color: 4 },
   { name: "CHANTS", color: 2 },
   { name: "COTES", color: 8 },
 ];
@@ -14,22 +15,56 @@ const LAYERS = [
 class DxfBuilder {
   constructor() {
     this.entities = [];
+    this.rotation = null;
+  }
+
+  // Rotation appliquée aux entités émises ensuite (repère DXF, sens trigo).
+  pushRotation(cx, cy, deg) {
+    this.rotation = deg % 360 ? { cx, cy, deg } : null;
+  }
+
+  popRotation() {
+    this.rotation = null;
+  }
+
+  transformPoint(x, y) {
+    if (!this.rotation) return [x, y];
+    const { cx, cy, deg } = this.rotation;
+    const a = (deg * Math.PI) / 180;
+    const dx = x - cx;
+    const dy = y - cy;
+    return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
   }
 
   line(layer, x1, y1, x2, y2) {
-    this.entities.push(["LINE", ["8", layer], ["10", x1], ["20", y1], ["11", x2], ["21", y2]]);
+    const [ax, ay] = this.transformPoint(x1, y1);
+    const [bx, by] = this.transformPoint(x2, y2);
+    this.entities.push(["LINE", ["8", layer], ["10", ax], ["20", ay], ["11", bx], ["21", by]]);
   }
 
   circle(layer, cx, cy, radius) {
-    this.entities.push(["CIRCLE", ["8", layer], ["10", cx], ["20", cy], ["40", radius]]);
+    const [tx, ty] = this.transformPoint(cx, cy);
+    this.entities.push(["CIRCLE", ["8", layer], ["10", tx], ["20", ty], ["40", radius]]);
   }
 
   arc(layer, cx, cy, radius, startDeg, endDeg) {
-    this.entities.push(["ARC", ["8", layer], ["10", cx], ["20", cy], ["40", radius], ["50", startDeg], ["51", endDeg]]);
+    const [tx, ty] = this.transformPoint(cx, cy);
+    const shift = this.rotation ? this.rotation.deg : 0;
+    const norm = (deg) => ((deg + shift) % 360 + 360) % 360;
+    this.entities.push(["ARC", ["8", layer], ["10", tx], ["20", ty], ["40", radius], ["50", norm(startDeg)], ["51", norm(endDeg)]]);
+  }
+
+  // Arc quart de cercle défini par ses deux extrémités (le sens mineur est choisi).
+  arcBetween(layer, cx, cy, radius, [x1, y1], [x2, y2]) {
+    const a1 = ((Math.atan2(y1 - cy, x1 - cx) * 180) / Math.PI + 360) % 360;
+    const a2 = ((Math.atan2(y2 - cy, x2 - cx) * 180) / Math.PI + 360) % 360;
+    if ((a2 - a1 + 360) % 360 <= 180) this.arc(layer, cx, cy, radius, a1, a2);
+    else this.arc(layer, cx, cy, radius, a2, a1);
   }
 
   text(layer, x, y, height, value) {
-    this.entities.push(["TEXT", ["8", layer], ["10", x], ["20", y], ["40", height], ["1", value]]);
+    const [tx, ty] = this.transformPoint(x, y);
+    this.entities.push(["TEXT", ["8", layer], ["10", tx], ["20", ty], ["40", height], ["1", value]]);
   }
 
   // Rectangle avec rayons d'angle optionnels (repère : origine en bas à gauche).
@@ -124,6 +159,62 @@ function pieceOutline(dxf, x, y, width, height, corners) {
     [x + s.bl.dx, y + s.bl.dy, s.bl.dx, 180, 270], [x + s.bl.dx, y + s.bl.dy]);
 }
 
+// Encoche ouverte sur un bord : trois côtés seulement (le côté `edgeSide` reste
+// ouvert), avec traitement des nouveaux angles E1 / E2 (arrondi, coupe 45°,
+// découpe d'angle). Repère : (x, y) bas-gauche de l'emprise en coordonnées DXF.
+function edgeNotchOutline(dxf, cut, x, y, width, height) {
+  const side = cut.edgeSide || "top";
+  // Repère local : origine sur E1, u le long du bord ouvert (vers E2),
+  // v vers l'intérieur de l'encoche. À l'écran comme en DXF : E1 = extrémité
+  // gauche (côtés haut/bas) ou arrière (côtés gauche/droite).
+  const frames = {
+    top: { origin: [x, y + height], u: [1, 0], v: [0, -1], span: width, depth: height },
+    bottom: { origin: [x, y], u: [1, 0], v: [0, 1], span: width, depth: height },
+    left: { origin: [x, y + height], u: [0, -1], v: [1, 0], span: height, depth: width },
+    right: { origin: [x + width, y + height], u: [0, -1], v: [-1, 0], span: height, depth: width },
+  };
+  const { origin, u, v, span, depth } = frames[side] || frames.top;
+  const pt = (a, b) => [origin[0] + a * u[0] + b * v[0], origin[1] + a * u[1] + b * v[1]];
+  const lineTo = (p1, p2) => dxf.line("DECOUPES", p1[0], p1[1], p2[0], p2[1]);
+
+  // Traitement d'un angle ouvert. `dir` = +1 pour E1 (matière côté a<0),
+  // -1 pour E2 (matière côté a>span). Retourne la profondeur b où démarre la
+  // paroi verticale de l'encoche.
+  const cornerStart = (treatment, edgeA, dir) => {
+    const type = treatment?.type;
+    if (type === "round") {
+      const r = Math.max(0, Math.min(Number(treatment.radiusMm || 0), depth));
+      if (!r) return 0;
+      const center = pt(edgeA - dir * r, r);
+      dxf.arcBetween("DECOUPES", center[0], center[1], r, pt(edgeA - dir * r, 0), pt(edgeA, r));
+      return r;
+    }
+    if (type === "bevel") {
+      const ax = Math.max(0, Number(treatment.cutXmm || 0));
+      const ay = Math.max(0, Math.min(Number(treatment.cutYmm || 0), depth));
+      if (!ax && !ay) return 0;
+      lineTo(pt(edgeA - dir * ax, 0), pt(edgeA, ay));
+      return ay;
+    }
+    if (type === "cutout") {
+      const ax = Math.max(0, Number(treatment.cutXmm || 0));
+      const ay = Math.max(0, Math.min(Number(treatment.cutYmm || 0), depth));
+      if (!ax && !ay) return 0;
+      lineTo(pt(edgeA - dir * ax, 0), pt(edgeA - dir * ax, ay));
+      lineTo(pt(edgeA - dir * ax, ay), pt(edgeA, ay));
+      return ay;
+    }
+    return 0;
+  };
+
+  const startDepth = cornerStart(cut.edgeCorners?.start, 0, 1);
+  const endDepth = cornerStart(cut.edgeCorners?.end, span, -1);
+  // Parois latérales puis fond fermé.
+  lineTo(pt(0, startDepth), pt(0, depth));
+  lineTo(pt(0, depth), pt(span, depth));
+  lineTo(pt(span, depth), pt(span, endDepth));
+}
+
 // Écrit chaque pièce fabriquée côte à côte avec ses découpes et annotations.
 export function projectToDxf(project, catalog) {
   const dxf = new DxfBuilder();
@@ -143,26 +234,68 @@ export function projectToDxf(project, catalog) {
     });
 
     for (const cut of piece.cutouts || []) {
+      const wMm = Number(cut.widthMm || 0);
+      const hMm = Number(cut.heightMm || 0);
       const cx = offsetX + Number(cut.xMm || 0);
       // Le modèle écran a Y vers le bas depuis l'arrière ; on convertit.
-      const cy = W - Number(cut.yMm || 0) - Number(cut.heightMm || 0);
+      const cy = W - Number(cut.yMm || 0) - hMm;
+      const labelParts = [cut.brand, cut.reference].filter(Boolean).join(" ");
+      // La rotation écran est horaire (Y vers le bas) : en repère DXF elle s'inverse.
+      const rotationDeg = Number(cut.rotationDeg || 0);
+      if (rotationDeg) dxf.pushRotation(cx + wMm / 2, cy + hMm / 2, -rotationDeg);
+
       if (cut.shape === "circle") {
         const radius = Number(cut.diameterMm || cut.widthMm || 35) / 2;
         dxf.circle("PERCAGES", cx + radius, W - Number(cut.yMm || 0) - radius, radius);
-        dxf.text("COTES", cx, W - Number(cut.yMm || 0) + 12, 25, `Ø${round(radius * 2)} ${cut.kind === "tap" ? "ROBINET" : cut.kind.toUpperCase()}`);
+        dxf.popRotation();
+        dxf.text("COTES", cx, W - Number(cut.yMm || 0) + 12, 25, `Ø${round(radius * 2)} ${cut.kind === "tap" ? "ROBINET" : (cut.kind || "percage").toUpperCase()}`);
       } else if (cut.shape === "grooves") {
-        const grooves = Math.max(1, Number(cut.grooves || 5));
-        const spacing = Number(cut.heightMm || 400) / (grooves - 1 || 1);
+        // Rainures verticales réparties sur la largeur (identique à l'éditeur).
+        const grooves = Math.max(3, Number(cut.grooves || 5));
+        const spacing = wMm / (grooves - 1 || 1);
         for (let i = 0; i < grooves; i += 1) {
-          const y = cy + i * spacing;
-          dxf.line("RAINURES", cx, y, cx + Number(cut.widthMm || 0), y);
+          const gx = cx + i * spacing;
+          dxf.line("RAINURES", gx, cy, gx, cy + hMm);
         }
-        dxf.text("COTES", cx, cy + Number(cut.heightMm || 0) + 12, 25, `EGOUTTOIR ${grooves} RAINURES`);
+        dxf.popRotation();
+        dxf.text("COTES", cx, cy + hMm + 12, 25, `EGOUTTOIR ${grooves} RAINURES`);
+      } else if (cut.shape === "recessed") {
+        // Décaissé : usinage en profondeur, pas une découpe traversante.
+        const radius = Number(cut.radiusMm || 8);
+        dxf.roundedRect("DEFONCAGE", cx, cy, wMm, hMm, { bl: radius, br: radius, tr: radius, tl: radius });
+        dxf.popRotation();
+        dxf.text("COTES", cx, cy + hMm + 12, 25, `EGOUTTOIR DECAISSE ${round(wMm)}x${round(hMm)}`);
+      } else if (cut.shape === "capsule") {
+        // Oblong : deux demi-cercles reliés par deux droites.
+        const r = Math.min(wMm, hMm) / 2;
+        dxf.line("DECOUPES", cx + r, cy, cx + wMm - r, cy);
+        dxf.line("DECOUPES", cx + wMm - r, cy + hMm, cx + r, cy + hMm);
+        dxf.arc("DECOUPES", cx + wMm - r, cy + r, r, 270, 90);
+        dxf.arc("DECOUPES", cx + r, cy + r, r, 90, 270);
+        dxf.popRotation();
+        dxf.text("COTES", cx, cy + hMm + 12, 25, `${labelParts || (cut.kind || "decoupe").toUpperCase()} ${round(wMm)}x${round(hMm)}`);
+      } else if (cut.shape === "edge-notch") {
+        edgeNotchOutline(dxf, cut, cx, cy, wMm, hMm);
+        dxf.popRotation();
+        dxf.text("COTES", cx, cy + hMm + 12, 25, `${labelParts || "ENCOCHE"} ${round(wMm)}x${round(hMm)}`);
       } else {
-        const radius = Number(cut.radiusMm || 0);
-        dxf.roundedRect("DECOUPES", cx, cy, Number(cut.widthMm || 0), Number(cut.heightMm || 0), { bl: radius, br: radius, tr: radius, tl: radius });
-        const label = [cut.brand, cut.reference].filter(Boolean).join(" ") || cut.kind.toUpperCase();
-        dxf.text("COTES", cx, cy + Number(cut.heightMm || 0) + 12, 25, `${label} ${round(cut.widthMm)}x${round(cut.heightMm)}`);
+        const isFlush = cut.serviceId === "cut-flush";
+        const radius = Number((isFlush ? cut.flushInnerRadiusMm ?? cut.radiusMm : cut.radiusMm) || 0);
+        dxf.roundedRect("DECOUPES", cx, cy, wMm, hMm, { bl: radius, br: radius, tr: radius, tl: radius });
+        if (isFlush) {
+          // Pose à fleur : défonçage extérieur centré sur la découpe.
+          const ow = Number(cut.flushOuterWidthMm || wMm);
+          const oh = Number(cut.flushOuterHeightMm || hMm);
+          const orad = Math.max(0, Math.min(Number(cut.flushOuterRadiusMm || 0), ow / 2, oh / 2));
+          const mx = cx + wMm / 2;
+          const my = cy + hMm / 2;
+          dxf.roundedRect("DEFONCAGE", mx - ow / 2, my - oh / 2, ow, oh, { bl: orad, br: orad, tr: orad, tl: orad });
+          dxf.popRotation();
+          dxf.text("COTES", cx, cy + hMm + 44, 25, `DEFONCAGE ${round(ow)}x${round(oh)} PROF ${round(Number(cut.flushDepthMm || 0))} mm`);
+        } else {
+          dxf.popRotation();
+        }
+        dxf.text("COTES", cx, cy + hMm + 12, 25, `${labelParts || (cut.kind || "decoupe").toUpperCase()} ${round(wMm)}x${round(hMm)}`);
       }
     }
 

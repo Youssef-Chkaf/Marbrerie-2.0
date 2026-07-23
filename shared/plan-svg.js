@@ -3,7 +3,7 @@
 // - technicalSvg : « Plan technique entièrement coté » d'une pièce.
 // Reproduit la présentation des documents imprimés d'origine.
 
-import { slabPath, cutoutBounds } from "./slab.js";
+import { slabPath, cutoutBounds, edgeSegmentMm } from "./slab.js";
 
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const num = (value) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -85,10 +85,14 @@ export function overviewSvg(project, { numbered = true, maxHeightPx = 760 } = {}
   const pieces = (project.pieces || []);
   if (!pieces.length) return { svg: "", legend: [] };
   const scale = OVERVIEW_SCALE;
+  // Les positions x/y sont stockées en pixels du canevas de dessin (échelle 0,12) :
+  // conversion exacte vers l'échelle de la vue d'ensemble.
+  const CANVAS_SCALE = 0.12;
+  const pos = scale / CANVAS_SCALE;
   const placed = pieces.map((piece) => {
     const w = piece.lengthMm * scale;
     const h = piece.kind === "wall" ? 26 : piece.widthMm * scale;
-    return { piece, x: (piece.x || 0) * 2.4, y: (piece.y || 0) * 2.4, w, h };
+    return { piece, x: (piece.x || 0) * pos, y: (piece.y || 0) * pos, w, h };
   });
   const maxX = Math.max(...placed.map((p) => p.x + p.w)) + 80;
   const maxY = Math.max(...placed.map((p) => p.y + p.h)) + 60;
@@ -103,12 +107,17 @@ export function overviewSvg(project, { numbered = true, maxHeightPx = 760 } = {}
     legend.push({ index: counter, name: piece.name || piece.kind, lengthMm: piece.lengthMm, widthMm: piece.widthMm, rotationDeg: piece.rotationDeg || 0 });
     const inner = `translate(${x} ${y}) scale(${scale})`;
     const cuts = (piece.cutouts || []).map((cut) => cutGraphic(cut, 0, 0)).join("");
+    // Chants travaillés (longueur partielle respectée), comme sur le canevas.
+    const edges = (piece.edges || []).filter((e) => e.serviceId).map((edge) => {
+      const [ex1, ey1, ex2, ey2] = edgeSegmentMm(piece, edge);
+      return `<line x1="${ex1}" y1="${ey1}" x2="${ex2}" y2="${ey2}" stroke="#2e7d5b" stroke-width="${8 / scale * 0.28}" stroke-linecap="round" opacity=".9"/>`;
+    }).join("");
     const stroke = piece.kind === "splashback" ? "#8a8d86" : "#2e7d5b";
     const badge = numbered ? `<g><circle cx="${x + w / 2}" cy="${y + h / 2}" r="15" fill="#fff" stroke="#20231f" stroke-width="1.6"/>
       <text x="${x + w / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="15" font-weight="600" fill="#20231f">${counter}</text></g>` : "";
     return `<g${rotation}><g transform="${inner}">
       <path d="${slabPath(piece)}" fill="#d9c9b6" stroke="${stroke}" stroke-width="${10 / scale * 0.28}"/>
-      ${cuts}</g>${badge}</g>`;
+      ${cuts}${edges}</g>${badge}</g>`;
   }).join("");
   const svg = `<svg viewBox="0 0 ${Math.max(maxX, 700)} ${Math.max(maxY, 420)}" width="100%" style="max-height:${maxHeightPx}px" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
   return { svg, legend };

@@ -194,3 +194,41 @@ test("18. purchaseHT = matière + prestations + livraison", () => {
   assert.equal(quote.serviceSubtotal, 99.17);
   assert.equal(quote.purchaseHT, 350.25);
 });
+
+test("19. Encoche ouverte : angles E1/E2 travaillés facturés à la grille façonnage", () => {
+  const piece = worktop(2400, 650, {
+    cutouts: [{
+      id: "c1", kind: "notch", shape: "edge-notch", serviceId: "cut-tap",
+      xMm: 900, yMm: 430, widthMm: 400, heightMm: 220, edgeSide: "bottom",
+      edgeCorners: { start: { type: "round", radiusMm: 30 }, end: { type: "cutout", cutXmm: 40, cutYmm: 25 } },
+    }],
+  });
+  const quote = computeQuote(makeProject({ pieces: [piece] }), catalog, settings);
+  const corners = quote.lines.filter((l) => l.category === "Façonnage");
+  assert.equal(corners.length, 2);
+  // E1 arrondi : 67,77 → vente round(142,317) = 142,32 ; E2 découpe : 28,00 → 58,80.
+  assert.equal(corners[0].factoryUnitPrice, 67.77);
+  assert.equal(corners[0].customerUnitPrice, 142.32);
+  assert.ok(corners[0].description.includes("E1"));
+  assert.equal(corners[1].factoryUnitPrice, 28);
+  assert.equal(corners[1].customerUnitPrice, 58.8);
+  assert.ok(corners[1].description.includes("E2"));
+});
+
+test("20. Évier timbre d'office : chant fini sur découpe = (l + 2p) au tarif du chant du côté", () => {
+  const piece = worktop(2400, 650, {
+    edges: [{ side: "bottom", serviceId: "edge-straight" }],
+    cutouts: [{
+      id: "c1", kind: "sink-apron", shape: "edge-notch", serviceId: "cut-tap",
+      xMm: 900, yMm: 430, widthMm: 500, heightMm: 220, edgeSide: "bottom", finishedEdge: true,
+      edgeCorners: { start: { type: "square" }, end: { type: "square" } },
+    }],
+  });
+  const quote = computeQuote(makeProject({ pieces: [piece] }), catalog, settings);
+  const finished = quote.lines.find((l) => l.category === "Chant" && l.description.includes("Chant fini sur découpe"));
+  assert.ok(finished);
+  // (500 + 2×220) / 1000 = 0,94 ml à 8 € → achat 7,52 ; vente 16,80 × 0,94 = 15,792 → 15,79.
+  assert.equal(finished.factoryAmount, 7.52);
+  assert.equal(finished.customerUnitPrice, 16.8);
+  assert.equal(finished.customerAmount, 15.79);
+});

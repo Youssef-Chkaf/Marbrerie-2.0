@@ -6,6 +6,7 @@ import { esc, number, money } from "../ui.js";
 import { openDetailEditor } from "./details.js";
 import { register } from "../actions.js";
 import { makePiece, plateDims } from "/shared/plan.js";
+import { slabPath, edgeSegmentMm } from "/shared/slab.js";
 import { saveProject } from "./index.js";
 import { renderInspector } from "./inspector.js";
 
@@ -44,18 +45,17 @@ function pieceSvg(piece, selected) {
     }
     return `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="2" class="overview-cut" fill="none" stroke="#b0492c" stroke-width="1.8"/>`;
   }).join("");
-  const edges = (piece.edges || []).map((edge) => {
-    const points = edge.side === "top" ? [x, y, x + w, y]
-      : edge.side === "bottom" ? [x, y + h, x + w, y + h]
-      : edge.side === "left" ? [x, y, x, y + h]
-      : [x + w, y, x + w, y + h];
-    return `<line x1="${points[0]}" y1="${points[1]}" x2="${points[2]}" y2="${points[3]}" class="overview-finished-edge-path" stroke="#2e7d5b" stroke-width="3"/>`;
+  // Chants travaillés : longueur partielle et point de départ respectés.
+  const edges = (piece.edges || []).filter((e) => e.serviceId).map((edge) => {
+    const [ex1, ey1, ex2, ey2] = edgeSegmentMm(piece, edge);
+    return `<line x1="${x + ex1 * scaleX}" y1="${y + ey1 * scaleY}" x2="${x + ex2 * scaleX}" y2="${y + ey2 * scaleY}" class="overview-finished-edge-path" stroke="#2e7d5b" stroke-width="3" stroke-linecap="round"/>`;
   }).join("");
   const fill = piece.kind === "splashback" ? "#e4d5bf" : "#d9c9b6";
   const stroke = selected ? "#c75b39" : piece.kind === "splashback" ? "#8a6d3b" : "#2e7d5b";
   const badge = piece.needsReview ? `<text x="${x + 4}" y="${y + 12}" font-size="10" fill="#b0492c">⚠ à vérifier</text>` : "";
+  // Contour réel (angles arrondis / pans coupés / découpes d'angle visibles).
   return `<g class="overview-piece" data-piece="${piece.id}"${rotation} style="cursor:move">
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" class="overview-piece-fill" fill="${fill}" stroke="${stroke}" stroke-width="${selected ? 2.6 : 2}"/>
+    <g transform="translate(${x} ${y}) scale(${scaleX} ${scaleY})"><path d="${slabPath(piece)}" class="overview-piece-fill" fill="${fill}" stroke="${stroke}" stroke-width="${(selected ? 2.6 : 2) / scaleX}"/></g>
     ${cuts}${edges}${badge}
     <text x="${x + 4}" y="${y - 5}" font-size="10" fill="#40433e">${esc(piece.name || "")}</text>
     <title>${esc(piece.name || piece.kind)}</title></g>
@@ -140,10 +140,15 @@ export function bindCanvas(root) {
     svg.setPointerCapture(event.pointerId);
     if (pieceEl) {
       const piece = project.pieces.find((p) => p.id === pieceEl.dataset.piece);
+      const selectionChanged = cfg.selectedPieceId !== piece.id;
       cfg.selectedPieceId = piece.id;
       const point = svgPoint(event);
-      drag = { type: "piece", piece, offsetX: point.x - (piece.x || 0), offsetY: point.y - (piece.y || 0), moved: false };
-      window.dispatchEvent(new Event("marbexa:render"));
+      // On garde l'id (pas l'objet) : une sauvegarde différée peut remplacer
+      // le projet en mémoire pendant le glissement.
+      drag = { type: "piece", pieceId: piece.id, offsetX: point.x - (piece.x || 0), offsetY: point.y - (piece.y || 0), moved: false };
+      // Re-rendu seulement si la sélection change : un re-rendu systématique
+      // remplacerait le SVG entre les deux clics d'un double-clic.
+      if (selectionChanged) window.dispatchEvent(new Event("marbexa:render"));
     } else {
       drag = { type: "pan", startX: event.clientX - (cfg.panX || 0), startY: event.clientY - (cfg.panY || 0) };
     }
@@ -158,12 +163,13 @@ export function bindCanvas(root) {
       return;
     }
     const point = svgPoint(event);
-    const piece = drag.piece;
+    const project = currentProject();
+    const piece = project?.pieces.find((p) => p.id === drag.pieceId);
+    if (!piece) return;
     let nx = point.x - drag.offsetX;
     let ny = point.y - drag.offsetY;
     // Accrochage : bords des autres pièces (déplacement lent = précision).
     const { w, h } = pieceBox(piece);
-    const project = currentProject();
     const threshold = 7;
     for (const other of project.pieces) {
       if (other.id === piece.id) continue;
@@ -180,13 +186,7 @@ export function bindCanvas(root) {
     piece.y = Math.round(ny);
     drag.moved = true;
     // Mise à jour directe sans re-render complet pour rester fluide.
-    const g = svg.querySelector(`[data-piece="${piece.id}"]`);
-    if (g) {
-      const rect = g.querySelector("rect");
-      const dx = piece.x - Number(rect.getAttribute("x"));
-      const dy = piece.y - Number(rect.getAttribute("y"));
-      if (dx || dy) window.requestAnimationFrame(() => window.dispatchEvent(new Event("marbexa:render-canvas")));
-    }
+    window.requestAnimationFrame(() => window.dispatchEvent(new Event("marbexa:render-canvas")));
   });
 
   const endDrag = () => {
@@ -210,7 +210,10 @@ export function bindCanvas(root) {
 
   // Double-clic sur une pièce fabriquée → éditeur découpes & chants.
   svg.addEventListener("dblclick", (event) => {
-    const pieceEl = event.target.closest("[data-piece]");
+    // La capture du pointeur (drag) recible les clics vers le SVG :
+    // on retrouve la pièce sous le curseur par ses coordonnées.
+    const pieceEl = event.target.closest("[data-piece]")
+      || document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-piece]");
     if (!pieceEl) return;
     const project = currentProject();
     const piece = project?.pieces.find((p) => p.id === pieceEl.dataset.piece);

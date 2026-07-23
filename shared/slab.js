@@ -105,6 +105,23 @@ export function cutoutBounds(cut) {
   return { x: Number(cut.xMm || 0), y: Number(cut.yMm || 0), width: w, height: h };
 }
 
+// Segment d'un chant travaillé (mm, repère pièce) : gère la longueur partielle
+// et le point de départ (« Ajouter la longueur depuis »). Retourne [x1, y1, x2, y2].
+export function edgeSegmentMm(piece, edge) {
+  const L = Number(piece.lengthMm || 0);
+  const W = Number(piece.widthMm || 0);
+  const horizontal = ["top", "bottom"].includes(edge.side);
+  const max = horizontal ? L : W;
+  const length = Math.min(Number(edge.lengthMm || max), max);
+  const fromEnd = edge.startFrom === "right" || edge.startFrom === "bottom";
+  const start = fromEnd ? max - length : 0;
+  const end = fromEnd ? max : length;
+  if (edge.side === "top") return [start, 0, end, 0];
+  if (edge.side === "bottom") return [start, W, end, W];
+  if (edge.side === "left") return [0, start, 0, end];
+  return [L, start, L, end];
+}
+
 // Position d'une encoche ouverte sur un bord : recolle la découpe au bord choisi.
 export function clampEdgeNotch(piece, cut) {
   const b = cutoutBounds(cut);
