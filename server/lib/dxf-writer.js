@@ -2,6 +2,8 @@
 // de FAO / CNC du marché). Calques : CONTOUR, DECOUPES, PERCAGES, RAINURES,
 // DEFONCAGE (poses à fleur et décaissés, usinage en profondeur), CHANTS, COTES.
 
+import { edgeSegmentMm } from "../../shared/slab.js";
+
 const LAYERS = [
   { name: "CONTOUR", color: 7 },
   { name: "DECOUPES", color: 1 },
@@ -299,23 +301,30 @@ export function projectToDxf(project, catalog) {
       }
     }
 
-    // Trait de repérage des chants travaillés + code.
+    // Trait de repérage des chants travaillés + code. La longueur partielle
+    // (« Longueur travaillée » + origine) est respectée : le trait ne couvre
+    // que la portion réellement façonnée et facturée.
     for (const edge of piece.edges || []) {
+      if (!edge.serviceId) continue;
       const service = (catalog?.services || []).find((item) => item.id === edge.serviceId);
       const code = service?.codes?.stone || "CHANT";
       const inset = 18;
+      // Segment en repère écran (Y vers le bas depuis l'arrière) → repère DXF.
+      const [sx1, sy1, sx2, sy2] = edgeSegmentMm(piece, edge);
+      const midX = offsetX + (sx1 + sx2) / 2;
+      const midY = W - (sy1 + sy2) / 2;
       if (edge.side === "bottom") {
-        dxf.line("CHANTS", offsetX, inset, offsetX + L, inset);
-        dxf.text("COTES", offsetX + L / 2 - 60, inset + 8, 22, code);
+        dxf.line("CHANTS", offsetX + sx1, inset, offsetX + sx2, inset);
+        dxf.text("COTES", midX - 60, inset + 8, 22, code);
       } else if (edge.side === "top") {
-        dxf.line("CHANTS", offsetX, W - inset, offsetX + L, W - inset);
-        dxf.text("COTES", offsetX + L / 2 - 60, W - inset - 30, 22, code);
+        dxf.line("CHANTS", offsetX + sx1, W - inset, offsetX + sx2, W - inset);
+        dxf.text("COTES", midX - 60, W - inset - 30, 22, code);
       } else if (edge.side === "left") {
-        dxf.line("CHANTS", offsetX + inset, 0, offsetX + inset, W);
-        dxf.text("COTES", offsetX + inset + 8, W / 2, 22, code);
+        dxf.line("CHANTS", offsetX + inset, W - sy1, offsetX + inset, W - sy2);
+        dxf.text("COTES", offsetX + inset + 8, midY, 22, code);
       } else if (edge.side === "right") {
-        dxf.line("CHANTS", offsetX + L - inset, 0, offsetX + L - inset, W);
-        dxf.text("COTES", offsetX + L - inset - 90, W / 2, 22, code);
+        dxf.line("CHANTS", offsetX + L - inset, W - sy1, offsetX + L - inset, W - sy2);
+        dxf.text("COTES", offsetX + L - inset - 90, midY, 22, code);
       }
     }
 
