@@ -160,19 +160,21 @@ export function technicalSvg(piece, { face = null } = {}) {
   let rightLevel = 0;
   for (const cut of cuts) {
     const b = cutoutBounds(cut);
+    // Chaque cote nomme la découpe concernée, comme dans l'éditeur.
+    const cutName = (cut.reference || CUT_TITLES[cut.kind] || "découpe").toLowerCase();
     const axisX = b.x + b.width / 2;
     const axisCenterY = oy + b.y + b.height / 2;
     const bottomY = oy + W + 120 + bottomLevel * 48;
     parts.push(`<line x1="${ox + axisX}" y1="${axisCenterY}" x2="${ox + axisX}" y2="${bottomY}" stroke="#9aa7b4" stroke-width="1" stroke-dasharray="7 7"/>`);
-    parts.push(dim(ox, bottomY, ox + axisX, bottomY, `Axe depuis gauche ${num(mm(axisX))} mm`));
+    parts.push(dim(ox, bottomY, ox + axisX, bottomY, `Axe ${cutName} — depuis la gauche ${num(mm(axisX))} mm`));
     bottomLevel += 1;
     const rightX = ox + L + 84 + rightLevel * 56;
     parts.push(`<line x1="${ox + b.x + b.width / 2}" y1="${axisCenterY}" x2="${rightX}" y2="${axisCenterY}" stroke="#9aa7b4" stroke-width="1" stroke-dasharray="7 7"/>`);
-    parts.push(dim(rightX, axisCenterY, rightX, oy + W, `Axe depuis ${refEdge} ${num(mm(W - b.y - b.height / 2))} mm`, true));
+    parts.push(dim(rightX, axisCenterY, rightX, oy + W, `Axe ${cutName} — depuis ${refEdge} ${num(mm(W - b.y - b.height / 2))} mm`, true));
     rightLevel += 1;
     if (["hob", "sink"].includes(cut.kind)) {
       const rightX2 = ox + L + 84 + rightLevel * 56;
-      parts.push(dim(rightX2, oy + b.y + b.height, rightX2, oy + W, `Recul ${refEdge} ${num(mm(W - b.y - b.height))} mm`, true));
+      parts.push(dim(rightX2, oy + b.y + b.height, rightX2, oy + W, `Recul ${cutName} — ${refEdge} ${num(mm(W - b.y - b.height))} mm`, true));
       rightLevel += 1;
     }
   }

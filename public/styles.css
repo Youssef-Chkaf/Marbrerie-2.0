@@ -3246,3 +3246,94 @@ tbody tr:hover {
         width: 100%;
     }
 }
+/* ---------- Éditeur découpes & chants : lisibilité et navigation ---------- */
+
+/* Halo clair derrière les textes du plan : lisible même en superposition. */
+.svg-halo {
+    paint-order: stroke;
+    stroke: #f2ede4;
+    stroke-width: 5px;
+    stroke-linejoin: round;
+}
+
+.detail-canvas {
+    cursor: grab;
+}
+
+.detail-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 14px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #5a5e57;
+}
+
+.legend-swatch {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.legend-green {
+    width: 26px;
+    height: 5px;
+    border-radius: 3px;
+    background: #2e7d5b;
+}
+
+.legend-dash {
+    width: 26px;
+    height: 0;
+    border-top: 2px dashed #b6b0a5;
+}
+
+.legend-bubble {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #20231f;
+}
+
+.legend-tip {
+    color: #8a8d86;
+    font-style: italic;
+}
+
+/* Suggestions d'appareils sous la marque / référence. */
+.appliance-suggest {
+    display: grid;
+    gap: 5px;
+    margin: 4px 0 8px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.appliance-option {
+    display: grid;
+    text-align: left;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf9;
+    cursor: pointer;
+    font: inherit;
+}
+
+.appliance-option:hover {
+    border-color: var(--copper);
+    background: #faf3ee;
+}
+
+.appliance-option strong {
+    font-size: 12.5px;
+}
+
+.appliance-option small {
+    color: #6c6f6a;
+    font-size: 11px;
+}

@@ -142,9 +142,10 @@ function renderSvgCut(piece, cut, ox, oy) {
 
   const label = [cut.brand, cut.reference].filter(Boolean).join(" ") || CUT_NAMES[cut.kind] || "Découpe";
   const dims = cut.shape === "circle" ? `Ø ${number(b.width)}` : `${number(b.width)} × ${number(b.height)}${cut.radiusMm ? ` · R ${number(cut.radiusMm)}` : ""}`;
+  // Halo clair derrière le texte (classe svg-halo) : lisible même superposé.
   return `<g class="svg-cut" data-detail-cut="${cut.id}" style="cursor:move"${rotation}>${body}
-    <text x="${cx}" y="${cy - 10}" text-anchor="middle" font-size="26" font-weight="600" fill="#7a4632">${esc(label)}${cut.verified ? " ✓" : ""}</text>
-    <text x="${cx}" y="${cy + 24}" text-anchor="middle" font-size="24" fill="#7a4632">${dims}</text></g>`;
+    <text class="svg-halo" x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="18" font-weight="600" fill="#7a4632">${esc(label)}${cut.verified ? " ✓" : ""}</text>
+    <text class="svg-halo" x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="17" fill="#7a4632">${dims}</text></g>`;
 }
 
 function edgeSegment(piece, edge, ox, oy) {
@@ -164,7 +165,7 @@ function renderSvgEdges(piece, ox, oy) {
     const horizontal = y1 === y2;
     const offset = edge.side === "top" ? -16 : edge.side === "bottom" ? 26 : 0;
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2e7d5b" stroke-width="9" stroke-linecap="round" opacity=".85" class="svg-edge"/>
-      <text x="${horizontal ? midX : x1 + (edge.side === "left" ? -14 : 14)}" y="${horizontal ? midY + offset : midY}" text-anchor="${horizontal ? "middle" : edge.side === "left" ? "end" : "start"}" font-size="22" fill="#2e7d5b" class="svg-edge-label"${horizontal ? "" : ` transform="rotate(-90 ${horizontal ? midX : x1 + (edge.side === "left" ? -14 : 14)} ${midY})"`}>${esc(service?.codes?.[family] || "")}</text>`;
+      <text x="${horizontal ? midX : x1 + (edge.side === "left" ? -14 : 14)}" y="${horizontal ? midY + offset : midY}" text-anchor="${horizontal ? "middle" : edge.side === "left" ? "end" : "start"}" font-size="18" fill="#2e7d5b" class="svg-edge-label svg-halo"${horizontal ? "" : ` transform="rotate(-90 ${horizontal ? midX : x1 + (edge.side === "left" ? -14 : 14)} ${midY})"`}>${esc(service?.codes?.[family] || "")}</text>`;
   }).join("");
 }
 
@@ -173,7 +174,7 @@ function dimensionLine(x1, y1, x2, y2, label, { vertical = false } = {}) {
   const midY = (y1 + y2) / 2;
   return `<g class="svg-dim" color="#3f5b73">
     <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="1.6" marker-start="url(#detail-arrow)" marker-end="url(#detail-arrow)"/>
-    <text x="${vertical ? x1 - 10 : midX}" y="${vertical ? midY : y1 - 8}" text-anchor="middle" font-size="24" fill="currentColor"${vertical ? ` transform="rotate(-90 ${x1 - 10} ${midY})"` : ""}>${esc(label)}</text>
+    <text class="svg-halo" x="${vertical ? x1 - 10 : midX}" y="${vertical ? midY : y1 - 8}" text-anchor="middle" font-size="18" fill="currentColor"${vertical ? ` transform="rotate(-90 ${x1 - 10} ${midY})"` : ""}>${esc(label)}</text>
   </g>`;
 }
 
@@ -192,20 +193,22 @@ function renderSvgDimensions(piece, ox, oy) {
   let rightLevel = 0;
   for (const cut of piece.cutouts || []) {
     const b = cutoutBounds(cut);
+    // Chaque cote porte le nom de la découpe concernée (« Axe évier… »).
+    const cutName = (cut.reference || CUT_NAMES[cut.kind] || "découpe").toLowerCase();
     const axisX = b.x + b.width / 2;
     const axisYFromFront = W - b.y - b.height / 2;
     const bottomY = oy + W + 110 + bottomLevel * 46;
     parts.push(`<line x1="${ox + axisX}" y1="${oy + b.y + b.height / 2}" x2="${ox + axisX}" y2="${bottomY}" stroke="#9aa7b4" stroke-width="1" stroke-dasharray="6 6" class="svg-axis"/>`);
-    parts.push(dimensionLine(ox, bottomY, ox + axisX, bottomY, `Axe depuis gauche ${number(integerMm(axisX))} mm`));
+    parts.push(dimensionLine(ox, bottomY, ox + axisX, bottomY, `Axe ${cutName} — depuis la gauche ${number(integerMm(axisX))} mm`));
     bottomLevel += 1;
     const rightX = ox + L + 70 + rightLevel * 52;
     parts.push(`<line x1="${ox + b.x + b.width / 2}" y1="${oy + b.y + b.height / 2}" x2="${rightX}" y2="${oy + b.y + b.height / 2}" stroke="#9aa7b4" stroke-width="1" stroke-dasharray="6 6" class="svg-axis"/>`);
-    parts.push(dimensionLine(rightX, oy + b.y + b.height / 2, rightX, oy + W, `Axe depuis ${face ? "chant bas" : "chant avant"} ${number(integerMm(axisYFromFront))} mm`, { vertical: true }));
+    parts.push(dimensionLine(rightX, oy + b.y + b.height / 2, rightX, oy + W, `Axe ${cutName} — depuis ${face ? "chant bas" : "chant avant"} ${number(integerMm(axisYFromFront))} mm`, { vertical: true }));
     rightLevel += 1;
     if (["hob", "sink"].includes(cut.kind)) {
       const recul = W - b.y - b.height;
       const rightX2 = ox + L + 70 + rightLevel * 52;
-      parts.push(dimensionLine(rightX2, oy + b.y + b.height, rightX2, oy + W, `Recul ${face ? "chant bas" : "chant avant"} ${number(integerMm(recul))} mm`, { vertical: true }));
+      parts.push(dimensionLine(rightX2, oy + b.y + b.height, rightX2, oy + W, `Recul ${cutName} — ${face ? "chant bas" : "chant avant"} ${number(integerMm(recul))} mm`, { vertical: true }));
       rightLevel += 1;
     }
   }
@@ -274,6 +277,12 @@ function renderDetailCanvas(piece) {
       ${renderCornerMarkers(piece, ox, oy)}
       <text class="svg-front" x="${ox + piece.lengthMm / 2}" y="${oy + piece.widthMm + 70}" text-anchor="middle" font-size="26" letter-spacing="4" fill="#40433e">${lowerEdgeLabel}</text>
     </svg>
+    <div class="detail-legend">
+      <span><i class="legend-swatch legend-green"></i> chant fini (façonné et facturé)</span>
+      <span><i class="legend-swatch legend-dash"></i> zone de sécurité 40 mm du bord</span>
+      <span><i class="legend-swatch legend-bubble"></i> angles cliquables</span>
+      <span class="legend-tip">Glissez le fond pour déplacer la vue · molette pour zoomer</span>
+    </div>
   </section>`;
 }
 
@@ -323,9 +332,9 @@ function renderCutInspector(piece, cut) {
   const source = `<div class="verification">Une erreur de recherche est possible. Vérifiez toujours les cotes sur la fiche technique du fabricant.${cut.verified ? "<br><strong>✓ Cotes issues de la base d'encastrement Marbexa.</strong>" : ""}</div>`;
   const appliance = ["hob", "sink", "socket", "custom"].includes(cut.kind) ? `
     <div class="inspector-section"><h4>Appareil</h4>
-      <label>Marque<input data-cut-field="brand" value="${esc(cut.brand || "")}" placeholder="Bosch, Blanco, Legrand…" list="appliance-brands"></label>
-      <datalist id="appliance-brands">${(state.data.appliances?.brands || []).map((br) => `<option>${esc(br)}</option>`).join("")}</datalist>
-      <label>Référence<input data-cut-field="reference" value="${esc(cut.reference || "")}" placeholder="Référence exacte de l'appareil"></label>
+      <label>Marque<input data-cut-field="brand" data-appliance-search="brand" value="${esc(cut.brand || "")}" placeholder="Bosch, Blanco, Franke…" autocomplete="off"></label>
+      <label>Référence<input data-cut-field="reference" data-appliance-search="reference" value="${esc(cut.reference || "")}" placeholder="Référence de l'appareil" autocomplete="off"></label>
+      <div class="appliance-suggest" data-appliance-results><p class="help">Tapez une marque ou une référence : les appareils connus s'affichent ici.</p></div>
       <button class="btn btn-soft" data-action="lookup-appliance">Rechercher les cotes</button>
       ${cut.verified ? "" : `<button class="btn btn-ghost btn-small" data-action="save-appliance">Enregistrer ces cotes dans la base</button>`}
       ${source}
@@ -581,6 +590,71 @@ function addCut(type) {
 
 const rerender = () => window.dispatchEvent(new Event("marbexa:render"));
 
+// Rafraîchit uniquement le plan coté (SVG), sans reconstruire l'inspecteur :
+// le champ en cours de saisie garde le focus et les boutons restent cliquables.
+function updateDetailSvg() {
+  const piece = getPiece();
+  const section = document.querySelector(".detail-canvas");
+  if (!piece || !section) { rerender(); return; }
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = renderDetailCanvas(piece);
+  const fresh = wrapper.querySelector(".detail-canvas");
+  const scrollLeft = section.scrollLeft;
+  const scrollTop = section.scrollTop;
+  section.replaceWith(fresh);
+  fresh.scrollLeft = scrollLeft;
+  fresh.scrollTop = scrollTop;
+  bindDetailCanvas(document);
+}
+
+// ---------- Recherche d'appareils en direct ----------
+
+let applianceResults = [];
+let applianceSearchTimer = null;
+
+export function handleApplianceSearchInput(input) {
+  if (input.dataset.applianceSearch === undefined) return false;
+  clearTimeout(applianceSearchTimer);
+  applianceSearchTimer = setTimeout(async () => {
+    const container = document.querySelector("[data-appliance-results]");
+    if (!container) return;
+    const brand = document.querySelector("[data-cut-field=brand]")?.value || "";
+    const reference = document.querySelector("[data-cut-field=reference]")?.value || "";
+    const query = `${brand} ${reference}`.trim();
+    if (query.length < 2) {
+      container.innerHTML = `<p class="help">Tapez une marque ou une référence : les appareils connus s'affichent ici.</p>`;
+      return;
+    }
+    const piece = getPiece();
+    const cut = (piece?.cutouts || []).find((c) => c.id === selectedCutId);
+    const type = cut?.kind === "hob" ? "hob" : cut?.kind === "sink" ? "sink" : "";
+    try {
+      const result = await request(`/api/appliances?q=${encodeURIComponent(query)}${type ? `&type=${type}` : ""}`);
+      applianceResults = result.appliances || [];
+      container.innerHTML = applianceResults.length
+        ? applianceResults.slice(0, 8).map((a) => `
+          <button type="button" class="appliance-option" data-appliance-pick="${esc(a.id)}">
+            <strong>${esc(a.brand)} ${esc(a.reference)}</strong>
+            <small>${esc(a.label || "")} · découpe ${number(a.cutoutWidthMm)} × ${number(a.cutoutDepthMm)} mm</small>
+          </button>`).join("")
+        : `<p class="help">Aucun appareil trouvé pour « ${esc(query)} ». Saisissez les cotes manuellement, puis « Enregistrer ces cotes dans la base ».</p>`;
+    } catch { /* recherche silencieuse */ }
+  }, 250);
+  return true;
+}
+
+function applyApplianceToCut(cut, a) {
+  Object.assign(cut, {
+    widthMm: a.cutoutWidthMm, heightMm: a.cutoutDepthMm, radiusMm: a.cornerRadiusMm ?? cut.radiusMm,
+    brand: a.brand, reference: a.reference, applianceId: a.id,
+    minFrontMm: a.minFrontMm ?? 50, verified: true,
+  });
+  if (cut.serviceId === "cut-flush") {
+    cut.flushInnerWidthMm = a.cutoutWidthMm;
+    cut.flushInnerHeightMm = a.cutoutDepthMm;
+  }
+}
+
 export function handleDetailField(input) {
   const piece = getPiece();
   if (!piece) return false;
@@ -597,7 +671,8 @@ export function handleDetailField(input) {
     }
     if (!edge) return true;
     edge[field] = ["lengthMm", "heightMm"].includes(field) ? Number(input.value) : input.value;
-    saveProject(); rerender(); return true;
+    // Mise à jour du plan seulement : l'inspecteur garde le focus et le défilement.
+    saveProject(); updateDetailSvg(); return true;
   }
 
   if (input.dataset.cornerField !== undefined) {
@@ -609,10 +684,10 @@ export function handleDetailField(input) {
     if (field === "type") {
       if (input.value === "square") delete piece.corners[key];
       else piece.corners[key] = { type: input.value, radiusMm: corner.radiusMm || 50, cutXmm: corner.cutXmm || 100, cutYmm: corner.cutYmm || 100, outerRadiusAmm: corner.outerRadiusAmm || 0, innerRadiusMm: corner.innerRadiusMm ?? 10, outerRadiusBmm: corner.outerRadiusBmm || 0 };
-    } else {
-      piece.corners[key] = { ...corner, [field]: Number(input.value) };
+      saveProject(); rerender(); return true;
     }
-    saveProject(); rerender(); return true;
+    piece.corners[key] = { ...corner, [field]: Number(input.value) };
+    saveProject(); updateDetailSvg(); return true;
   }
 
   if (input.dataset.cutCornerField !== undefined) {
@@ -621,10 +696,12 @@ export function handleDetailField(input) {
     cut.edgeCorners = cut.edgeCorners || { start: { type: "square" }, end: { type: "square" } };
     const treatment = cut.edgeCorners[selectedCutCorner.key] || { type: "square" };
     const field = input.dataset.cutCornerField;
-    cut.edgeCorners[selectedCutCorner.key] = field === "type"
-      ? { ...treatment, type: input.value }
-      : { ...treatment, [field]: Number(input.value) };
-    saveProject(); rerender(); return true;
+    if (field === "type") {
+      cut.edgeCorners[selectedCutCorner.key] = { ...treatment, type: input.value };
+      saveProject(); rerender(); return true;
+    }
+    cut.edgeCorners[selectedCutCorner.key] = { ...treatment, [field]: Number(input.value) };
+    saveProject(); updateDetailSvg(); return true;
   }
 
   if (input.dataset.cutAxis !== undefined) {
@@ -633,7 +710,7 @@ export function handleDetailField(input) {
     const b = cutoutBounds(cut);
     cut.xMm = Math.round(Number(input.value) - b.width / 2);
     refreshDerived(piece, cut);
-    saveProject(); rerender(); return true;
+    saveProject(); updateDetailSvg(); return true;
   }
 
   if (input.dataset.cutField !== undefined) {
@@ -652,7 +729,14 @@ export function handleDetailField(input) {
     if (field === "frontAxisMm") cut.yMm = Math.max(0, Math.round(piece.widthMm - Number(input.value) - cutoutBounds(cut).height / 2));
     if (["brand", "reference", "widthMm", "heightMm", "diameterMm", "flushInnerWidthMm", "flushInnerHeightMm"].includes(field)) cut.verified = false;
     refreshDerived(piece, cut);
-    saveProject(); rerender(); return true;
+    saveProject();
+    // Les champs qui changent la structure de l'inspecteur (prestation, forme,
+    // côté d'accrochage…) demandent un rendu complet ; les valeurs numériques
+    // et la marque/référence ne rafraîchissent que le plan.
+    const structural = ["serviceId", "shape", "edgeSide", "sinkCutoutId", "side", "alignToSink"];
+    if (structural.includes(field)) rerender();
+    else updateDetailSvg();
+    return true;
   }
   return false;
 }
@@ -660,6 +744,19 @@ export function handleDetailField(input) {
 export function handleDetailClick(target) {
   const piece = getPiece();
   if (!piece) return false;
+
+  const pickEl = target.closest("[data-appliance-pick]");
+  if (pickEl) {
+    const cut = (piece.cutouts || []).find((c) => c.id === selectedCutId);
+    const found = applianceResults.find((a) => a.id === pickEl.dataset.appliancePick);
+    if (cut && found) {
+      applyApplianceToCut(cut, found);
+      refreshDerived(piece, cut);
+      saveProject(); rerender();
+      toast(`Cotes appliquées : ${found.brand} ${found.reference} — découpe ${found.cutoutWidthMm} × ${found.cutoutDepthMm} mm.`);
+    }
+    return true;
+  }
 
   const cutCornerEl = target.closest("[data-cut-corner-marker]");
   if (cutCornerEl) {
@@ -710,11 +807,15 @@ export function handleDetailClick(target) {
   return false;
 }
 
-// Glisser-déposer des découpes sur le plan coté.
+// Glisser-déposer des découpes + déplacement de la vue (pan) sur le plan coté.
+// L'état du glissement vit au niveau du module : le SVG est reconstruit pendant
+// le geste (mise à jour du plan) et le geste doit survivre au remplacement.
+let detailDrag = null;
+let detailDragFrame = null;
+
 export function bindDetailCanvas(root) {
   const svg = root.querySelector("#detail-svg");
   if (!svg) return;
-  let drag = null;
 
   const toMm = (event) => {
     const rect = svg.getBoundingClientRect();
@@ -727,50 +828,79 @@ export function bindDetailCanvas(root) {
 
   svg.addEventListener("pointerdown", (event) => {
     const cutEl = event.target.closest("[data-detail-cut]");
-    if (!cutEl) return;
-    const piece = getPiece();
-    const cut = piece?.cutouts.find((c) => c.id === cutEl.dataset.detailCut);
-    if (!cut) return;
-    if (selectedCutId !== cut.id) {
+    if (cutEl) {
+      const piece = getPiece();
+      const cut = piece?.cutouts.find((c) => c.id === cutEl.dataset.detailCut);
+      if (!cut) return;
+      const selectionChanged = selectedCutId !== cut.id;
       selectedCutId = cut.id;
       selectedCorner = null;
       selectedCutCorner = null;
-      rerender();
+      const point = toMm(event);
+      // On garde l'id (pas l'objet) : une sauvegarde différée peut remplacer
+      // le projet en mémoire pendant le glissement.
+      detailDrag = { type: "cut", cutId: cut.id, offsetX: point.x - 220 - Number(cut.xMm), offsetY: point.y - 140 - Number(cut.yMm), moved: false };
+      if (selectionChanged) rerender();
       return;
     }
-    svg.setPointerCapture(event.pointerId);
-    const point = toMm(event);
-    // On garde l'id (pas l'objet) : une sauvegarde différée peut remplacer
-    // le projet en mémoire pendant le glissement.
-    drag = { cutId: cut.id, offsetX: point.x - 220 - Number(cut.xMm), offsetY: point.y - 140 - Number(cut.yMm), moved: false };
+    if (event.target.closest("[data-corner-marker], [data-cut-corner-marker], .detail-zoom-controls")) return;
+    // Fond du plan : déplacement de la vue par le défilement du conteneur.
+    const container = svg.closest(".detail-canvas");
+    if (!container) return;
+    detailDrag = {
+      type: "pan",
+      startX: event.clientX, startY: event.clientY,
+      scrollLeft: container.scrollLeft, scrollTop: container.scrollTop,
+    };
+    container.style.cursor = "grabbing";
   });
+
   const dragTarget = () => {
     const piece = getPiece();
-    const cut = piece?.cutouts.find((c) => c.id === drag?.cutId);
+    const cut = piece?.cutouts.find((c) => c.id === detailDrag?.cutId);
     return cut ? { piece, cut } : null;
   };
+
   svg.addEventListener("pointermove", (event) => {
-    if (!drag) return;
+    if (!detailDrag) return;
+    if (detailDrag.type === "pan") {
+      const container = svg.closest(".detail-canvas");
+      if (!container) return;
+      container.scrollLeft = detailDrag.scrollLeft - (event.clientX - detailDrag.startX);
+      container.scrollTop = detailDrag.scrollTop - (event.clientY - detailDrag.startY);
+      return;
+    }
     const target = dragTarget();
     if (!target) return;
     const { piece, cut } = target;
     const point = toMm(event);
     const b = cutoutBounds(cut);
-    cut.xMm = Math.round(Math.min(Math.max(0, point.x - 220 - drag.offsetX), piece.lengthMm - b.width));
-    cut.yMm = Math.round(Math.min(Math.max(0, point.y - 140 - drag.offsetY), piece.widthMm - b.height));
+    cut.xMm = Math.round(Math.min(Math.max(0, point.x - 220 - detailDrag.offsetX), piece.lengthMm - b.width));
+    cut.yMm = Math.round(Math.min(Math.max(0, point.y - 140 - detailDrag.offsetY), piece.widthMm - b.height));
     if (cut.shape === "edge-notch") clampEdgeNotch(piece, cut);
     if (cut.kind === "tap") cut.alignToSink = false;
-    drag.moved = true;
-    rerender();
-  });
-  const endDrag = () => {
-    const target = drag?.moved ? dragTarget() : null;
-    if (target) {
-      refreshDerived(target.piece, target.cut);
-      saveProject();
-      rerender();
+    detailDrag.moved = true;
+    // Au plus un rafraîchissement du plan par image pour rester fluide.
+    if (!detailDragFrame) {
+      detailDragFrame = window.requestAnimationFrame(() => {
+        detailDragFrame = null;
+        updateDetailSvg();
+      });
     }
-    drag = null;
+  });
+
+  const endDrag = () => {
+    const container = svg.closest(".detail-canvas");
+    if (container) container.style.cursor = "";
+    if (detailDrag?.type === "cut" && detailDrag.moved) {
+      const target = dragTarget();
+      if (target) {
+        refreshDerived(target.piece, target.cut);
+        saveProject();
+        rerender();
+      }
+    }
+    detailDrag = null;
   };
   svg.addEventListener("pointerup", endDrag);
   svg.addEventListener("pointercancel", endDrag);
@@ -780,7 +910,7 @@ export function bindDetailCanvas(root) {
     cfg.detailZoom = Math.min(3, Math.max(0.4, (cfg.detailZoom || 1) * (event.deltaY < 0 ? 1.1 : 0.9)));
     svg.style.width = `${Math.round(cfg.detailZoom * 100)}%`;
     svg.style.minWidth = `${Math.round(1000 * cfg.detailZoom)}px`;
-    const label = root.querySelector(".detail-zoom-controls strong");
+    const label = document.querySelector(".detail-zoom-controls strong");
     if (label) label.textContent = `${Math.round(cfg.detailZoom * 100)} %`;
   }, { passive: false });
 }
@@ -813,15 +943,7 @@ register({
       const result = await request("/api/appliance-lookup", { body: { brand, reference } });
       if (result.found) {
         const a = result.appliance;
-        Object.assign(cut, {
-          widthMm: a.cutoutWidthMm, heightMm: a.cutoutDepthMm, radiusMm: a.cornerRadiusMm ?? cut.radiusMm,
-          brand: a.brand, reference: a.reference, applianceId: a.id,
-          minFrontMm: a.minFrontMm ?? 50, verified: true,
-        });
-        if (cut.serviceId === "cut-flush") {
-          cut.flushInnerWidthMm = a.cutoutWidthMm;
-          cut.flushInnerHeightMm = a.cutoutDepthMm;
-        }
+        applyApplianceToCut(cut, a);
         refreshDerived(piece, cut);
         saveProject(); rerender();
         toast(`Cotes trouvées : découpe ${a.cutoutWidthMm} × ${a.cutoutDepthMm} mm. ${result.note || ""}`);

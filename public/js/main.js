@@ -17,7 +17,7 @@ import { renderFactorySettings } from "./views/settings.js";
 import { renderProfile } from "./views/profile.js";
 import { renderConfigurator } from "./configurator/index.js";
 import { bindCanvas, handleStripField } from "./configurator/canvas.js";
-import { bindDetailCanvas } from "./configurator/details.js";
+import { bindDetailCanvas, handleApplianceSearchInput } from "./configurator/details.js";
 import { bindCredence, handleWallHeight } from "./configurator/credence.js";
 import { handlePieceField } from "./configurator/inspector.js";
 import { handleDetailField, handleDetailClick } from "./configurator/details.js";
@@ -106,12 +106,28 @@ export function render() {
     root.innerHTML = renderLogin();
     return;
   }
+  // Conserve le défilement (fenêtre + conteneurs internes) entre deux rendus,
+  // sinon chaque modification renvoie l'utilisateur en haut de page.
+  const keepScroll = [".detail-canvas", ".inspector", ".cut-library", ".modal-body", ".quote-layout"];
+  const saved = keepScroll
+    .map((selector) => {
+      const el = root.querySelector(selector);
+      return el ? [selector, el.scrollLeft, el.scrollTop] : null;
+    })
+    .filter(Boolean);
+  const winX = window.scrollX;
+  const winY = window.scrollY;
   root.innerHTML = shell();
   if (state.view === "configurator") {
     bindCanvas(root);
     bindCredence(root);
     bindDetailCanvas(root);
   }
+  for (const [selector, left, top] of saved) {
+    const el = root.querySelector(selector);
+    if (el) { el.scrollLeft = left; el.scrollTop = top; }
+  }
+  window.scrollTo(winX, winY);
 }
 
 window.addEventListener("marbexa:render", render);
@@ -197,6 +213,7 @@ document.addEventListener("change", (event) => {
 
 document.addEventListener("input", (event) => {
   const el = event.target;
+  if (handleApplianceSearchInput(el)) return;
   if (el.dataset.materialSearch !== undefined) {
     clearTimeout(el._timer);
     el._timer = setTimeout(() => {
