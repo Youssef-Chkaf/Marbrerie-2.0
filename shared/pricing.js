@@ -197,6 +197,7 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) 
     // Encoche ouverte : les nouveaux angles E1 / E2 travaillés se facturent
     // comme les angles du plan (grille façonnage e-marbrier).
     if (cut.shape === "edge-notch") {
+      const notchLabel = cut.kind === "sink-apron" ? "l'évier timbre" : "l'encoche";
       for (const [key, treatment] of Object.entries(cut.edgeCorners || {})) {
         if (!treatment || !treatment.type || treatment.type === "square") continue;
         const cornerService = findService(catalog, CORNER_SERVICES[treatment.type])
@@ -208,7 +209,7 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) 
         lines.push(makeLine({
           category: "Façonnage",
           code: serviceCode(cornerService, family),
-          description: `${cornerService.label} - Angle ${key === "start" ? "E1" : "E2"} (${service.label})${detail}`,
+          description: `${cornerService.label} - Angle ${key === "start" ? "E1" : "E2"} de ${notchLabel}${detail}`,
           quantity: 1,
           unit: "un",
           factoryUnitPrice: snappedService(cornerService),

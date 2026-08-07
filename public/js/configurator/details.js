@@ -697,7 +697,15 @@ export function handleDetailField(input) {
     const treatment = cut.edgeCorners[selectedCutCorner.key] || { type: "square" };
     const field = input.dataset.cutCornerField;
     if (field === "type") {
-      cut.edgeCorners[selectedCutCorner.key] = { ...treatment, type: input.value };
+      // Les valeurs par défaut affichées (rayon 30, coupe 50 × 50) sont
+      // enregistrées immédiatement, sinon le devis lit « rayon 0 mm ».
+      cut.edgeCorners[selectedCutCorner.key] = {
+        ...treatment,
+        type: input.value,
+        radiusMm: treatment.radiusMm || 30,
+        cutXmm: treatment.cutXmm || 50,
+        cutYmm: treatment.cutYmm || 50,
+      };
       saveProject(); rerender(); return true;
     }
     cut.edgeCorners[selectedCutCorner.key] = { ...treatment, [field]: Number(input.value) };
