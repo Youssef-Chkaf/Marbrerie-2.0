@@ -3337,3 +3337,16 @@ tbody tr:hover {
     color: #6c6f6a;
     font-size: 11px;
 }
+
+/* Les annotations du plan (cotes, axes, zone de sécurité, chants, libellés)
+   ne captent jamais la souris : elles passaient devant les découpes et
+   déclenchaient le déplacement de la vue au lieu du glissement. */
+#detail-svg .svg-dim,
+#detail-svg .svg-dim *,
+#detail-svg .svg-axis,
+#detail-svg .svg-annotation,
+#detail-svg .svg-front,
+#detail-svg .svg-edge,
+#detail-svg .svg-edge-label {
+    pointer-events: none;
+}

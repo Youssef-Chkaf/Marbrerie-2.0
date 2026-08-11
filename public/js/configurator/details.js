@@ -256,7 +256,7 @@ function renderDetailCanvas(piece) {
   const cutCount = (piece.cutouts || []).length;
   const vbWidth = piece.lengthMm + ox + 140 + cutCount * 60 + 160;
   const vbHeight = piece.widthMm + oy + 170 + cutCount * 46 + 90;
-  const clearance = `<rect x="${ox + 40}" y="${oy + 40}" width="${Math.max(0, piece.lengthMm - 80)}" height="${Math.max(0, piece.widthMm - 80)}" fill="none" stroke="#b6b0a5" stroke-width="1.5" stroke-dasharray="14 10"/>`;
+  const clearance = `<rect class="svg-annotation" x="${ox + 40}" y="${oy + 40}" width="${Math.max(0, piece.lengthMm - 80)}" height="${Math.max(0, piece.widthMm - 80)}" fill="none" stroke="#b6b0a5" stroke-width="1.5" stroke-dasharray="14 10"/>`;
   const lowerEdgeLabel = isFacePiece(piece) ? "Chant bas" : "Chant avant";
   return `<section class="detail-canvas" title="Utilisez la molette pour zoomer">
     <div class="detail-zoom-controls">
