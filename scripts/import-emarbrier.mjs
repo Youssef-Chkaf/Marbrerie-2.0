@@ -60,6 +60,16 @@ function parseFormat(format) {
 // Familles tarifaires des prestations : quartz → stone, céramique/frittés → ultra.
 const ULTRA_BRANDS = new Set(["dekton", "classtone", "arklam", "colorfeel", "fusion", "iron", "steel", "timber", "eclos"]);
 
+// ---------- Tri du catalogue (décision usine) ----------
+// On ne garde que Cosentino (Silestone, Dekton) et Neolith — dont les
+// collections sont stockées comme des « marques » dans l'export e-marbrier
+// et sont regroupées ici sous la marque Neolith — en 12 et 20 mm uniquement.
+// Écartés : Arklam et Eclos (ni Cosentino ni Neolith).
+const NEOLITH_COLLECTIONS = new Set(["classtone", "colorfeel", "fusion", "iron", "steel", "timber"]);
+const KEPT_BRANDS = new Set(["silestone", "dekton", "neolith", ...NEOLITH_COLLECTIONS]);
+const KEPT_THICKNESSES = new Set([12, 20]);
+const titleCase = (value) => String(value).toLowerCase().replace(/(^|[\s-])([a-zà-ÿ])/g, (m, sep, c) => sep + c.toUpperCase());
+
 // Teinte d'aperçu déterministe (visuel uniquement).
 function toneFor(name) {
   let hash = 0;
@@ -89,9 +99,10 @@ const finitionById = new Map(finitionsRows.map((row) => [row.id, { code: row.cod
 // ---------- Fusion anti-doublons ----------
 
 const byKey = new Map(); // normKey(marque)+normKey(coloris) → produit fusionné
-const stats = { merged: [], products: 0, variants: 0, variantsDeduped: 0 };
+const stats = { merged: [], products: 0, variants: 0, variantsDeduped: 0, excluded: 0, variantsExcluded: 0 };
 
 for (const row of produits) {
+  if (!KEPT_BRANDS.has(normKey(row.marque))) { stats.excluded += 1; continue; }
   const key = `${normKey(row.marque)}|${normKey(row.coloris)}`;
   const existing = byKey.get(key);
   if (!existing) {
@@ -122,6 +133,7 @@ for (const produit of byKey.values()) {
     for (const row of variantsByProduct.get(sourceId) || []) {
       const finition = finitionById.get(row.finition_id);
       if (!finition) continue;
+      if (!KEPT_THICKNESSES.has(Number(row.epaisseur_mm))) { stats.variantsExcluded += 1; continue; }
       const key = `${finition.code}|${Number(row.epaisseur_mm)}`;
       const price = Number(row.prix_achat_m2);
       const current = variantMap.get(key);
@@ -140,10 +152,15 @@ for (const produit of byKey.values()) {
   }
   if (!variantMap.size) continue;
   const variants = [...variantMap.values()].sort((a, b) => a.finish.localeCompare(b.finish) || a.thicknessMm - b.thicknessMm);
+  // Les collections Neolith sont regroupées sous la marque Neolith ;
+  // la collection d'origine reste visible (Classtone, Fusion, Iron…).
+  const isNeolith = NEOLITH_COLLECTIONS.has(normKey(produit.marque));
+  const brand = isNeolith ? "Neolith" : produit.marque.trim();
+  const collection = isNeolith ? titleCase(produit.marque.trim()) : produit.gamme.trim();
   materials.push({
-    id: `${slugify(produit.marque)}-${slugify(produit.coloris)}`,
-    brand: produit.marque.trim(),
-    collection: produit.gamme.trim(),
+    id: `${slugify(brand)}-${isNeolith ? `${slugify(collection)}-` : ""}${slugify(produit.coloris)}`,
+    brand,
+    collection,
     color: produit.coloris.trim(),
     tone: toneFor(produit.coloris),
     family: ULTRA_BRANDS.has(normKey(produit.marque)) ? "ultra" : "stone",
@@ -169,8 +186,8 @@ const output = {
 };
 
 fs.writeFileSync(outFile, JSON.stringify(output, null, 1));
-console.log(`Produits sources : ${produits.length} → fusionnés : ${stats.products}`);
-console.log(`Variantes sources : ${stats.variants} → doublons résolus : ${stats.variantsDeduped}`);
+console.log(`Produits sources : ${produits.length} → gardés après tri : ${stats.products} (écartés hors Cosentino/Neolith : ${stats.excluded})`);
+console.log(`Variantes sources : ${stats.variants} → doublons résolus : ${stats.variantsDeduped} · hors 12/20 mm écartées : ${stats.variantsExcluded}`);
 console.log(`Fusions de casse (${stats.merged.length}) :`);
 for (const line of stats.merged) console.log(`  - ${line}`);
 console.log(`Écrit : ${outFile}`);

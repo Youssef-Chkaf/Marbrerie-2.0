@@ -69,9 +69,14 @@ ne voit le DXF machine qu'après validation usine.
 
 ## Catalogue réel & règles de chiffrage e-marbrier
 
-Le catalogue vient de l'export Supabase du projet e-marbrier :
-**281 produits** (284 sources, doublons de casse fusionnés vers le Title Case
-le moins cher), **872 variantes** finition × épaisseur, **25 finitions**.
+Le catalogue vient de l'export Supabase du projet e-marbrier, **trié sur
+décision usine** : seules les marques Cosentino (**Silestone**, **Dekton**) et
+**Neolith** (collections Classtone, Colorfeel, Fusion, Iron, Steel, Timber,
+regroupées sous la marque Neolith) sont conservées, en **12 et 20 mm**
+uniquement — soit **168 produits** et 441 variantes (doublons de casse
+fusionnés vers le Title Case le moins cher). Arklam et Eclos sont écartés.
+Le tri se règle en tête de `scripts/import-emarbrier.mjs`
+(`KEPT_BRANDS`, `KEPT_THICKNESSES`).
 Réimport : placer les CSV dans `server/data-seed/source/` puis
 `node scripts/import-emarbrier.mjs` et `npm run seed:reset`.
 
