@@ -232,3 +232,31 @@ test("20. Évier timbre d'office : chant fini sur découpe = (l + 2p) au tarif d
   assert.equal(finished.customerUnitPrice, 16.8);
   assert.equal(finished.customerAmount, 15.79);
 });
+
+test("21. Pierre naturelle sur demande : prix saisi sur le devis, marge appliquée", () => {
+  const withStone = {
+    ...catalog,
+    materials: [...catalog.materials, {
+      id: "pierre-naturelle-sur-demande", brand: "Pierre naturelle", color: "Sur demande",
+      family: "stone", onRequest: true, active: true,
+      variants: [{ finish: "POLI", finishLabel: "Poli", thicknessMm: 20, priceM2: 0 }],
+    }],
+  };
+  const quote = computeQuote(makeProject({
+    materialId: "pierre-naturelle-sur-demande", thicknessMm: 20,
+    customStoneLabel: "Granit Noir Zimbabwe", customStonePriceM2: 250,
+    pieces: [worktop(2000, 650)],
+  }), withStone, settings);
+  const line = materialLine(quote);
+  // 1,3 m² à 250 € : achat 325,00 ; P.U. vente round(250 × 2,1) = 525 → 682,50.
+  assert.equal(line.factoryUnitPrice, 250);
+  assert.equal(line.factoryAmount, 325);
+  assert.equal(line.customerUnitPrice, 525);
+  assert.equal(line.customerAmount, 682.5);
+  assert.ok(line.description.includes("Granit Noir Zimbabwe"));
+  // Sans prix saisi : la ligne reste à 0 (le devis n'est pas envoyable).
+  const empty = computeQuote(makeProject({
+    materialId: "pierre-naturelle-sur-demande", thicknessMm: 20, pieces: [worktop(2000, 650)],
+  }), withStone, settings);
+  assert.equal(materialLine(empty).factoryUnitPrice, 0);
+});

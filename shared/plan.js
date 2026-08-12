@@ -138,7 +138,10 @@ export function validateProject(project, catalog) {
   for (const piece of project.pieces || []) {
     if (!["worktop", "splashback", "panel"].includes(piece.kind)) continue;
     const material = (catalog?.materials || []).find((m) => m.id === (piece.materialId || project.materialId));
+    if (material?.onRequest && !(Number(project.customStonePriceM2) > 0)) {
+      issues.push("Pierre naturelle sur demande : renseignez le prix d'achat au m² transmis par l'usine avant l'envoi.");
+    }
     issues.push(...validatePiece(piece, material, project.finish, project.thicknessMm));
   }
-  return issues;
+  return [...new Set(issues)];
 }

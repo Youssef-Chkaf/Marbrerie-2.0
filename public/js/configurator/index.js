@@ -47,6 +47,7 @@ export function saveProject(immediate = false, { rerender = false } = {}) {
         deliveryWeek: project.deliveryWeek, deliveryDistanceKm: project.deliveryDistanceKm,
         notes: project.notes, pieces: project.pieces,
         quoteDate: project.quoteDate, validityDate: project.validityDate, customerOrderDate: project.customerOrderDate,
+        customStoneLabel: project.customStoneLabel || "", customStonePriceM2: Number(project.customStonePriceM2 || 0),
       };
       const result = await request(`/api/projects/${project.id}`, { method: "PATCH", body });
       const index = state.data.projects.findIndex((p) => p.id === project.id);

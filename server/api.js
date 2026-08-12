@@ -323,7 +323,8 @@ export class Api {
         }
         const allowed = ["title", "roomType", "customer", "materialId", "thicknessMm", "finish", "marginPct", "vatPct",
           "manualQuoteLines", "commercialDiscount", "deliveryWeek", "deliveryDistanceKm", "notes", "pieces",
-          "quoteDate", "validityDate", "customerOrderDate", "archived", "status"];
+          "quoteDate", "validityDate", "customerOrderDate", "archived", "status",
+          "customStoneLabel", "customStonePriceM2"];
         for (const key of allowed) {
           if (key in body) project[key] = body[key];
         }
@@ -379,7 +380,7 @@ export class Api {
           return fail(409, "Une commande existe déjà pour ce projet.");
         }
         const issues = validateProject(project, this.catalogOf(project.factoryId));
-        const blocking = issues.filter((i) => i.includes("réservées aux plans de travail"));
+        const blocking = issues.filter((i) => i.includes("réservées aux plans de travail") || i.includes("Pierre naturelle sur demande"));
         if (blocking.length) return fail(422, blocking[0]);
         this.recomputeQuote(project);
         const order = {

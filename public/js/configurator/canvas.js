@@ -86,7 +86,10 @@ export function renderDesignStep(project) {
     <label>Coloris<select data-strip-field="materialId">${colors.map((m) => `<option value="${m.id}" ${m.id === project.materialId ? "selected" : ""}>${esc(m.color)}${currentVariant && m.id === project.materialId ? ` · dès ${money(Math.min(...m.variants.map((v) => v.priceM2)))}/m²` : ""}</option>`).join("")}</select></label>
     <label>Finition<select data-strip-field="finish">${finishes.map(([code, label]) => `<option value="${esc(code)}" ${project.finish === code ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
     <label>Épaisseur<select data-strip-field="thicknessMm">${thicknesses.map((t) => `<option value="${t}" ${Number(project.thicknessMm) === t ? "selected" : ""}>${t} mm</option>`).join("")}</select></label>
-    <span class="limit-note">${dims ? `Plaque maxi : ${number(dims.maxLengthMm)} × ${number(dims.maxWidthMm)} mm` : ""}</span>
+    ${material?.onRequest ? `
+    <label>Désignation de la pierre<input data-strip-field="customStoneLabel" value="${esc(project.customStoneLabel || "")}" placeholder="Granit Noir Zimbabwe…"></label>
+    <label>Prix d'achat usine (€/m²)<input type="number" min="0" step="0.01" data-strip-field="customStonePriceM2" value="${esc(project.customStonePriceM2 || "")}" placeholder="Sur consultation"></label>` : ""}
+    <span class="limit-note">${material?.onRequest ? "Pierre naturelle : prix sur consultation de l'usine — obligatoire avant l'envoi de la commande" : dims ? `Plaque maxi : ${number(dims.maxLengthMm)} × ${number(dims.maxWidthMm)} mm` : ""}</span>
     <button class="btn btn-small btn-soft" data-action="cfg-credence-view">Crédences · vues des murs</button>
   </div>
   <div class="design-layout">
@@ -239,6 +242,10 @@ export function handleStripField(select) {
     project.finish = select.value;
   } else if (field === "thicknessMm") {
     project.thicknessMm = Number(select.value);
+  } else if (field === "customStoneLabel") {
+    project.customStoneLabel = select.value;
+  } else if (field === "customStonePriceM2") {
+    project.customStonePriceM2 = Number(select.value || 0);
   }
   // Garde finition et épaisseur cohérentes avec les variantes disponibles.
   const material = materials.find((m) => m.id === project.materialId);

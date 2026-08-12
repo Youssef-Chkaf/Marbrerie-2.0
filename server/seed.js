@@ -25,6 +25,24 @@ export function verifyPassword(password, stored) {
 // Prestations d'angle issues du chiffrage e-marbrier (prix d'achat, hors marge).
 // Grille extraite du code historique — à faire valider par l'usine :
 // découpe 90° = 28,00 € · pan coupé = 34,19 € · extrémité arrondie = 67,77 €.
+// Pierre naturelle (granit, marbre, quartzite…) : pas de prix catalogue —
+// le prix d'achat au m² est saisi sur le devis, après consultation de l'usine.
+const STONE_ON_REQUEST = {
+  id: "pierre-naturelle-sur-demande",
+  brand: "Pierre naturelle",
+  collection: "Sur demande",
+  color: "Sur demande",
+  tone: "#8f8a80",
+  family: "stone",
+  onRequest: true,
+  active: true,
+  image: "",
+  variants: [
+    { finish: "POLI", finishLabel: "Poli", thicknessMm: 20, priceM2: 0, format: "", maxLengthMm: 3200, maxWidthMm: 1600 },
+    { finish: "POLI", finishLabel: "Poli", thicknessMm: 30, priceM2: 0, format: "", maxLengthMm: 3200, maxWidthMm: 1600 },
+  ],
+};
+
 const EMARBRIER_CORNER_SERVICES = [
   { id: "corner-90", category: "shape", label: "Découpe d'angle 90°", codes: { stone: "90G/90D", ultra: "90G/90D" }, prices: { stone: 28, ultra: 28 }, unit: "un", active: true },
   { id: "corner-bevel", category: "shape", label: "Pan coupé", codes: { stone: "PCG/PCD", ultra: "PCG/PCD" }, prices: { stone: 34.19, ultra: 34.19 }, unit: "un", active: true },
@@ -119,7 +137,7 @@ export function buildSeed() {
       [factory.id]: {
         source: emarbrier.source,
         updatedAt: now,
-        materials: emarbrier.materials,
+        materials: [...emarbrier.materials, STONE_ON_REQUEST],
         finitions: emarbrier.finitions,
         services: [...catalogSeed.services, ...EMARBRIER_CORNER_SERVICES],
       },

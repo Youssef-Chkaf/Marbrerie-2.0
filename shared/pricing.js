@@ -149,14 +149,22 @@ function pieceLines(catalog, project, piece, settings, marginPct, vatPct, snap) 
   if (material && area > 0) {
     const variant = findVariant(material, finish, thickness);
     const finishLabel = variant?.finishLabel || finish || "";
+    // Pierre naturelle « sur demande » : le prix d'achat au m² est saisi sur
+    // le devis (consultation usine), pas lu au catalogue ni au prix figé.
+    const onRequest = Boolean(material.onRequest);
+    const customLabel = String(project.customStoneLabel || "").trim();
     lines.push(makeLine({
       category: "Matière",
       code: material.group || variant?.finish || "",
-      description: `${piece.name} - ${material.brand} ${material.color}, ${finishLabel}, ${thickness} mm`,
+      description: onRequest
+        ? `${piece.name} - Pierre naturelle sur demande${customLabel ? ` : ${customLabel}` : ""}, ${thickness} mm`
+        : `${piece.name} - ${material.brand} ${material.color}, ${finishLabel}, ${thickness} mm`,
       quantity: area,
       unit: "m²",
-      factoryUnitPrice: snap(`mat:${material.id}|${variant?.finish || finish}|${variant?.thicknessMm || thickness}`,
-        () => materialUnitPrice(material, thickness, finish, settings?.finishSurchargePct)),
+      factoryUnitPrice: onRequest
+        ? round2(Number(project.customStonePriceM2 || 0))
+        : snap(`mat:${material.id}|${variant?.finish || finish}|${variant?.thicknessMm || thickness}`,
+          () => materialUnitPrice(material, thickness, finish, settings?.finishSurchargePct)),
       marginPct, vatPct, piece,
     }));
   }
