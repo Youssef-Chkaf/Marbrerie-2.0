@@ -1,0 +1,31 @@
+# Marbexa 2.0 en production : application + reverse proxy Caddy (HTTPS
+# automatique via Let's Encrypt). Renseignez votre domaine dans Caddyfile.
+#
+#   docker compose up -d --build
+#
+services:
+  marbexa:
+    build: .
+    restart: unless-stopped
+    environment:
+      - MARBEXA_DATA=/data/db.json
+    volumes:
+      - marbexa-data:/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - marbexa
+
+volumes:
+  marbexa-data:
+  caddy-data:
+  caddy-config:

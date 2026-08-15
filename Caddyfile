@@ -1,0 +1,7 @@
+# Remplacez marbexa.votre-domaine.fr par votre vrai domaine (le DNS doit
+# pointer vers l'IP du serveur). Caddy obtient et renouvelle le certificat
+# HTTPS tout seul.
+marbexa.votre-domaine.fr {
+	encode gzip
+	reverse_proxy marbexa:3000
+}

@@ -241,8 +241,10 @@ export class Api {
       }
       this.loginAttempts.delete(attemptKey);
       const token = this.createSession(user.id);
+      // Derrière un reverse proxy HTTPS, le cookie est marqué Secure.
+      const secure = req.headers["x-forwarded-proto"] === "https" ? "; Secure" : "";
       return send(200, { token, ...this.bootstrap(user) }, {
-        "Set-Cookie": `marbexa_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+        "Set-Cookie": `marbexa_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`,
       });
     }
 
