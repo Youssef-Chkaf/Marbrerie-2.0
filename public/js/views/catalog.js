@@ -58,7 +58,7 @@ function renderMaterials(catalog, editable) {
 function renderServices(catalog, editable) {
   return `<section class="card">
     <div class="card-head"><h3>Prestations issues du tarif d'essai</h3>
-      <span class="help">Stone : granit, Silestone, Topzstone · Ultra : Dekton, Neolith</span></div>
+      <span class="help">Stone : Silestone, pierre naturelle · Ultra : Dekton, Neolith</span></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Prestation</th><th>Catégorie</th><th>Codes</th><th>Prix Stone</th><th>Prix Ultra</th><th>Unité</th><th>Actif</th></tr></thead>
       <tbody>${catalog.services.map((item) => `<tr>

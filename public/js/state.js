@@ -14,7 +14,7 @@ export const state = {
   aiProposal: null,      // dernière analyse DXF/PDF en attente de validation
 };
 
-export function resetConfigurator(projectId, step = "material") {
+export function resetConfigurator(projectId, step = "design") {
   state.configurator = {
     projectId,
     step,

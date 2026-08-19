@@ -22,7 +22,6 @@ import { bindCredence, handleWallHeight } from "./configurator/credence.js";
 import { handlePieceField } from "./configurator/inspector.js";
 import { handleDetailField, handleDetailClick } from "./configurator/details.js";
 import { handleQuoteField } from "./configurator/quote.js";
-import { handleMaterialChange } from "./configurator/material.js";
 
 const root = document.querySelector("#app");
 
@@ -203,7 +202,6 @@ document.addEventListener("change", (event) => {
       .catch((error) => toast(error.message, "error"));
     return;
   }
-  if (el.dataset.actionChange && handleMaterialChange(el)) return;
   if (handleStripField(el)) return;
   if (handleWallHeight(el)) return;
   if (handlePieceField(el)) { render(); return; }

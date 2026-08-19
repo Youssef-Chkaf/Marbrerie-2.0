@@ -4,7 +4,6 @@ import { state, resetConfigurator, currentProject } from "../state.js";
 import { request, refresh } from "../api.js";
 import { esc, toast } from "../ui.js";
 import { register } from "../actions.js";
-import { renderMaterialStep } from "./material.js";
 import { renderDesignStep } from "./canvas.js";
 import { renderCredenceView } from "./credence.js";
 import { renderQuoteStep } from "./quote.js";
@@ -73,9 +72,8 @@ export function renderConfigurator() {
 
   const steps = `
     <div class="steps">
-      <button class="step ${cfg.step === "material" ? "active" : ""}" data-action="cfg-step" data-step="material">1 · Matière</button>
-      <button class="step ${cfg.step === "design" || cfg.step === "credence" ? "active" : ""}" data-action="cfg-step" data-step="design">2 · Dessin</button>
-      <button class="step ${cfg.step === "quote" ? "active" : ""}" data-action="cfg-step" data-step="quote">3 · Chiffrage</button>
+      <button class="step ${cfg.step === "design" || cfg.step === "credence" ? "active" : ""}" data-action="cfg-step" data-step="design">1 · Dessin</button>
+      <button class="step ${cfg.step === "quote" ? "active" : ""}" data-action="cfg-step" data-step="quote">2 · Chiffrage</button>
     </div>`;
 
   const head = `
@@ -91,14 +89,13 @@ export function renderConfigurator() {
       </div>
     </div>`;
 
-  const body = cfg.step === "material" ? renderMaterialStep(project)
-    : cfg.step === "credence" ? renderCredenceView(project)
+  const body = cfg.step === "credence" ? renderCredenceView(project)
     : cfg.step === "quote" ? renderQuoteStep(project)
     : cfg.detailPieceId ? renderDetailEditor()
     : renderDesignStep(project);
 
-  const nextAction = cfg.step === "material"
-    ? `<button class="btn btn-primary" data-action="cfg-step" data-step="design">Passer au dessin →</button>`
+  const nextAction = cfg.step === "quote"
+    ? ""
     : `<button class="btn btn-primary" data-action="cfg-step" data-step="quote">Passer au chiffrage →</button>`;
   const footer = `
     <div class="flow-footer">
