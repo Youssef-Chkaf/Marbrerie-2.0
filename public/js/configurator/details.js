@@ -70,7 +70,7 @@ function renderLibrary() {
     <button class="cut-option" data-add-cut="sink-integrated"><span class="cut-icon"></span><span>Évier encastré dans la matière</span></button>
     <button class="cut-option" data-add-cut="sink-glued"><span class="cut-icon"></span><span>Évier collé sous plan dans la matière</span></button>
     <button class="cut-option" data-add-cut="round"><span class="cut-icon circle"></span><span>Trou robinet</span></button>
-    <button class="cut-option" data-add-cut="socket"><span class="cut-icon capsule"></span><span>Prise de courant</span></button>
+    <button class="cut-option" data-add-cut="socket"><span class="cut-icon circle"></span><span>Prise de courant</span></button>
     <button class="cut-option" data-add-cut="custom"><span class="cut-icon"></span><span>Découpe sur mesure</span></button>
     <button class="cut-option" data-add-cut="drainer"><span class="cut-icon grooves"></span><span>Rainurage d'égouttoir</span></button>
     <button class="cut-option" data-add-cut="drainer-recessed"><span class="cut-icon recessed"></span><span>Égouttoir décaissé</span></button>
@@ -541,7 +541,7 @@ const CUT_PRESETS = {
   "sink-integrated": { kind: "sink", shape: "rounded", serviceId: "sink-integrated", widthMm: 500, heightMm: 400, radiusMm: 15 },
   "sink-glued": { kind: "sink", shape: "rounded", serviceId: "sink-glued", widthMm: 500, heightMm: 400, radiusMm: 15 },
   round: { kind: "tap", shape: "circle", serviceId: "cut-tap", widthMm: 35, heightMm: 35, diameterMm: 35, tapOffsetMm: 70 },
-  socket: { kind: "socket", shape: "capsule", serviceId: "cut-tap", widthMm: 120, heightMm: 55, radiusMm: 27.5 },
+  socket: { kind: "socket", shape: "circle", serviceId: "cut-tap", widthMm: 68, heightMm: 68, diameterMm: 68 },
   custom: { kind: "custom", shape: "rounded", serviceId: "cut-rough", widthMm: 200, heightMm: 150, radiusMm: 10 },
   drainer: { kind: "drainer", shape: "grooves", serviceId: "drainer-5", widthMm: 380, heightMm: 180, grooves: 5, side: "right", insetMm: 0 },
   "drainer-recessed": { kind: "drainer", shape: "recessed", serviceId: "drainer-recessed", widthMm: 380, heightMm: 180, radiusMm: 8, side: "right", insetMm: 0 },

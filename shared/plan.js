@@ -42,7 +42,7 @@ export function makeCutout(kind, overrides = {}) {
     sink: { shape: "rounded", serviceId: "cut-polished", widthMm: 520, heightMm: 420, radiusMm: 12 },
     hob: { shape: "rounded", serviceId: "cut-rough", widthMm: 560, heightMm: 490, radiusMm: 10 },
     tap: { shape: "circle", serviceId: "cut-tap", widthMm: 35, heightMm: 35, diameterMm: 35 },
-    socket: { shape: "circle", serviceId: "cut-tap", widthMm: 80, heightMm: 80, diameterMm: 80 },
+    socket: { shape: "circle", serviceId: "cut-tap", widthMm: 68, heightMm: 68, diameterMm: 68 },
     drainer: { shape: "grooves", serviceId: "drainer-5", widthMm: 450, heightMm: 400, grooves: 5 },
     notch: { shape: "rect", serviceId: "cut-inside", widthMm: 100, heightMm: 100, radiusMm: 0 },
     custom: { shape: "rect", serviceId: "cut-rough", widthMm: 300, heightMm: 300, radiusMm: 0 },

@@ -274,3 +274,12 @@ test("plusieurs pièces : décalage 220 mm, murs exclus, crédences incluses", (
   assert.ok(near(Math.max(...xs), 4420), `emprise attendue jusqu'à 4420, trouvée ${Math.max(...xs)}`);
   assert.ok(xs.some((x) => near(x, 2620)), "début de la crédence à 2620");
 });
+
+test("prise de courant : trou rond Ø68 sur PERCAGES, étiquette PRISE", () => {
+  const e = gen([piece({ cutouts: [{ id: "s", kind: "socket", shape: "circle", serviceId: "cut-tap", xMm: 400, yMm: 100, widthMm: 68, heightMm: 68, diameterMm: 68 }] })]);
+  const circle = onLayer(e, "PERCAGES", "CIRCLE")[0];
+  assert.ok(circle, "cercle attendu");
+  assert.equal(circle.r, 34, "rayon 34 = Ø68");
+  assert.ok(samePoint([circle.x1, circle.y1], [434, 516]), "centre 434 / 516");
+  assert.ok(e.some((t) => t.type === "TEXT" && /Ø68 PRISE/.test(t.text || "")), "étiquette Ø68 PRISE");
+});

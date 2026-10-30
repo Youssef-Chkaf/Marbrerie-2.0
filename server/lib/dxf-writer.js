@@ -250,7 +250,7 @@ export function projectToDxf(project, catalog) {
         const radius = Number(cut.diameterMm || cut.widthMm || 35) / 2;
         dxf.circle("PERCAGES", cx + radius, W - Number(cut.yMm || 0) - radius, radius);
         dxf.popRotation();
-        dxf.text("COTES", cx, W - Number(cut.yMm || 0) + 12, 25, `Ø${round(radius * 2)} ${cut.kind === "tap" ? "ROBINET" : (cut.kind || "percage").toUpperCase()}`);
+        dxf.text("COTES", cx, W - Number(cut.yMm || 0) + 12, 25, `Ø${round(radius * 2)} ${cut.kind === "tap" ? "ROBINET" : cut.kind === "socket" ? "PRISE" : (cut.kind || "percage").toUpperCase()}`);
       } else if (cut.shape === "grooves") {
         // Rainures verticales réparties sur la largeur (identique à l'éditeur).
         const grooves = Math.max(3, Number(cut.grooves || 5));
